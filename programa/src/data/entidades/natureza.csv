@@ -37,11 +37,11 @@ codigo,descricao
 339032,"Material, Bem ou Serviço para Distribuição Gratuita "
 339033,Passagens e Despesas com Locomoção 
 339035,Serviços de Consultoria 
-339036,Outros Serviços de Terceiros - Pessoa Física 
-339037,Locação de Mão-de-Obra 
+339036,Outros Serviços de Terceiros Pessoa Física 
+339037,Locação de Mão de Obra 
 339038,Arrendamento Mercantil
-339039,Outros Servi�os de Terceiros - Pessoa Jur�dica 
-339040,Servi�os de Tecnologia da Informa��o e Comunica��o - Pessoa Jur�dica 
+339039,Outros Servi�os de Terceiros Pessoa Jur�dica 
+339040,Servi�os de Tecnologia da Informa��o e Comunica��o Pessoa Jur�dica 
 339045,Subven��es Econ�micas 
 339046,Aux�lio-Alimenta��o
 339047,Obriga��es Tribut�rias e Contributivas 
@@ -62,13 +62,13 @@ codigo,descricao
 449035,Servi�os de Consultoria 
 449039,Outros Servi�os de Terceiros - Pessoa Jur�dica 
 449040,Servi�os de Tecnologia da Informa��o e Comunica��o - Pessoa Jur�dica 
-449051,Obras e Instala��es 
+449051,Obras e Instalações 
 449052,Equipamentos e Material Permanente 
-449061,Aquisi��o de Im�veis 
-449092,Despesas de Exerc�cios Anteriores 
-449093,Indeniza��es e Restitui��es 
-459065,Constitui��o ou Aumento de Capital de Empresas 
-469071,Principal da D�vida Contratual Resgatado 
+449061,Aquisição de Imóveis 
+449092,Despesas de Exercícios Anteriores 
+449093,Indenizações e Restituições 
+459065,Constituição ou Aumento de Capital de Empresas 
+469071,Principal da Dívida Contratual Resgatado 
 999999,RESERVA DE CONTINGENCIA
 ,
 ,

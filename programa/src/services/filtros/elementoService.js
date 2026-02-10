@@ -20,6 +20,9 @@ function normalize(text) {
  * - carregar o CSV de elementos de despesa
  * - manter os dados em memória
  * - extrair elementos de despesa a partir de uma frase
+ *
+ * REGRA ESPECIAL:
+ * - só permite busca por CÓDIGO se a frase contiver "elemento_despesa"
  */
 class ElementoService {
 
@@ -63,38 +66,45 @@ class ElementoService {
 
     /**
      * Extrai elementos de despesa de uma frase:
-     * 1. Busca códigos explícitos (somente dois dígitos isolados, ex: "05")
-     * 2. Busca descrições (fallback)
+     * 1. Busca por código (CONDICIONAL)
+     * 2. Busca por descrição (fallback)
      * 3. Permite múltiplos resultados
      */
     extrair(frase) {
         const resultados = [];
         const encontrados = new Set(); // evita duplicidade
 
+        const textoNormalizado = normalize(frase);
+
         // -------------------------------
-        // 1️⃣ BUSCA POR CÓDIGO
+        // 🔐 REGRA: permite busca por código?
         // -------------------------------
+        const permiteBuscaPorCodigo =
+            textoNormalizado.includes("elemento");
 
-        // Aceita SOMENTE dois dígitos isolados
-        const codigos = frase.match(/\b\d{2}\b/g) || [];
+        // -------------------------------
+        // 1️⃣ BUSCA POR CÓDIGO (CONDICIONAL)
+        // -------------------------------
+        if (permiteBuscaPorCodigo) {
+            // Aceita SOMENTE dois dígitos isolados (ex: "05")
+            const codigos = frase.match(/\b\d{2}\b/g) || [];
 
-        for (const codigo of codigos) {
-            const elemento = this.mapaPorCodigo.get(codigo);
+            for (const codigo of codigos) {
+                const elemento = this.mapaPorCodigo.get(codigo);
 
-            if (elemento && !encontrados.has(codigo)) {
-                resultados.push({
-                    codigo: elemento.codigo,
-                    descricao: elemento.descricao
-                });
-                encontrados.add(codigo);
+                if (elemento && !encontrados.has(codigo)) {
+                    resultados.push({
+                        codigo: elemento.codigo,
+                        descricao: elemento.descricao
+                    });
+                    encontrados.add(codigo);
+                }
             }
         }
 
         // -------------------------------
         // 2️⃣ BUSCA POR DESCRIÇÃO
         // -------------------------------
-
-        const textoNormalizado = normalize(frase);
 
         for (const elemento of this.elementos) {
             // Se já foi encontrado pelo código, ignora
@@ -110,7 +120,6 @@ class ElementoService {
                 textoNormalizado.includes(p)
             );
 
-            // ✅ MESMO CRITÉRIO DO UnidadeGestoraService
             const percentual = matches.length / palavras.length;
 
             if (percentual >= 0.7) {

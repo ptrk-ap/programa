@@ -1,5 +1,10 @@
 const fs = require("fs");
 const caminhoCsv = "../src/data/entidades/acao.csv";
+const { resolverPercentualMinimo } = require("../../utils/sensibilidadeMatcher");
+const PERCENTUAL_PADRAO = 0.7;
+const REGRAS_SENSIBILIDADE = [
+    { palavra: "acao", percentual: 0.5 }
+];
 
 /**
  * Normaliza texto para comparação
@@ -91,7 +96,11 @@ class AcaoService {
         // -------------------------------
         // 2️⃣ BUSCA POR DESCRIÇÃO
         // -------------------------------
-
+        const percentualMinimo = resolverPercentualMinimo(
+            textoNormalizado,
+            PERCENTUAL_PADRAO,
+            REGRAS_SENSIBILIDADE
+        );
         if (temPrograma) {
             return resultados;
         }
@@ -112,7 +121,7 @@ class AcaoService {
             // 🔥 Critério: 50% das palavras
             const percentual = matches.length / palavras.length;
 
-            if (percentual >= 0.7) {
+            if (percentual >= percentualMinimo) {
                 resultados.push({
                     codigo: acao.codigo,
                     descricao: acao.descricao

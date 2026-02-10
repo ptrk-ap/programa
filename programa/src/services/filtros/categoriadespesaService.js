@@ -1,11 +1,10 @@
 const fs = require("fs");
-const caminhoCsv = "../src/data/entidades/grupo_despesa.csv";
+const caminhoCsv = "../src/data/entidades/categoria_despesa.csv";
 
 /**
  * Normaliza texto para comparação:
  * - lowercase
  * - remove acentos
- * - facilita match com input do usuário
  */
 function normalize(text) {
     return text
@@ -17,28 +16,26 @@ function normalize(text) {
 
 /**
  * Service responsável por:
- * - carregar o CSV de grupos de despesa
+ * - carregar o CSV de categorias de despesa
  * - manter os dados em memória
- * - extrair grupos de despesa a partir de uma frase
+ * - extrair categorias de despesa a partir de uma frase
  *
  * REGRA ESPECIAL:
- * - só permite busca por CÓDIGO se a frase contiver "grupo_despesa"
+ * - só permite busca por CÓDIGO se a frase contiver "categoria_despesa"
  */
-class GrupoDespesaService {
+class CategoriaDespesaService {
 
     constructor() {
+        this.categorias = this.carregarCsv(caminhoCsv);
 
-        // Carrega o CSV uma única vez ao iniciar o serviço
-        this.grupos = this.carregarCsv(caminhoCsv);
-
-        // Índice por código para busca rápida (O(1))
+        // Índice por código (O(1))
         this.mapaPorCodigo = new Map(
-            this.grupos.map(g => [g.codigo, g])
+            this.categorias.map(c => [c.codigo, c])
         );
     }
 
     /**
-     * Lê o arquivo CSV e transforma em matriz de objetos
+     * Lê o CSV e transforma em objetos
      */
     carregarCsv(caminho) {
         const conteudo = fs.readFileSync(caminho, "utf8");
@@ -55,7 +52,6 @@ class GrupoDespesaService {
                     descricao: (descricao || "").trim()
                 };
             })
-            // 🔥 FILTRO CRÍTICO
             .filter(item =>
                 item.codigo &&
                 item.descricao &&
@@ -65,36 +61,36 @@ class GrupoDespesaService {
     }
 
     /**
-     * Extrai grupos de despesa de uma frase:
+     * Extrai categorias de despesa de uma frase:
      * 1. Busca por código (CONDICIONAL)
-     * 2. Busca por descrição (fallback com critério percentual)
-     * 3. Permite múltiplos resultados
+     * 2. Busca por descrição (fallback)
      */
     extrair(frase) {
         const resultados = [];
-        const encontrados = new Set(); // evita duplicidade
+        const encontrados = new Set();
 
         const textoNormalizado = normalize(frase);
 
         // -------------------------------
         // 🔐 REGRA: permite busca por código?
         // -------------------------------
-        const permiteBuscaPorCodigo = textoNormalizado.includes("grupo_despesa");
+        const permiteBuscaPorCodigo =
+            textoNormalizado.includes("categoria_despesa");
 
         // -------------------------------
         // 1️⃣ BUSCA POR CÓDIGO (CONDICIONAL)
         // -------------------------------
         if (permiteBuscaPorCodigo) {
-            // Aceita SOMENTE um dígito isolado (ex: "1", "3", "9")
+            // Aceita SOMENTE um dígito isolado
             const codigos = frase.match(/\b\d\b/g) || [];
 
             for (const codigo of codigos) {
-                const grupo = this.mapaPorCodigo.get(codigo);
+                const categoria = this.mapaPorCodigo.get(codigo);
 
-                if (grupo && !encontrados.has(codigo)) {
+                if (categoria && !encontrados.has(codigo)) {
                     resultados.push({
-                        codigo: grupo.codigo,
-                        descricao: grupo.descricao
+                        codigo: categoria.codigo,
+                        descricao: categoria.descricao
                     });
                     encontrados.add(codigo);
                 }
@@ -105,10 +101,10 @@ class GrupoDespesaService {
         // 2️⃣ BUSCA POR DESCRIÇÃO
         // -------------------------------
 
-        for (const grupo of this.grupos) {
-            if (encontrados.has(grupo.codigo)) continue;
+        for (const categoria of this.categorias) {
+            if (encontrados.has(categoria.codigo)) continue;
 
-            const palavras = normalize(grupo.descricao)
+            const palavras = normalize(categoria.descricao)
                 .split(" ")
                 .filter(p => p.length > 3);
 
@@ -118,15 +114,14 @@ class GrupoDespesaService {
                 textoNormalizado.includes(p)
             );
 
-            // Critério percentual (≥ 60%)
             const percentual = matches.length / palavras.length;
 
-            if (percentual >= 0.6) {
+            if (percentual >= 0.7) {
                 resultados.push({
-                    codigo: grupo.codigo,
-                    descricao: grupo.descricao
+                    codigo: categoria.codigo,
+                    descricao: categoria.descricao
                 });
-                encontrados.add(grupo.codigo);
+                encontrados.add(categoria.codigo);
             }
         }
 
@@ -134,4 +129,4 @@ class GrupoDespesaService {
     }
 }
 
-module.exports = GrupoDespesaService;
+module.exports = CategoriaDespesaService;

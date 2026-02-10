@@ -11,7 +11,8 @@ class QueryService {
             "acao",
             "fonte",
             "natureza",
-            "elemento"
+            "elemento",
+            "grupo_despesa"
 
         ];
 

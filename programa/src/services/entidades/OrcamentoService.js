@@ -12,6 +12,8 @@ class OrcamentoService {
             "programa": ["programa", "programa de governo"],
             "elemento": ["elemento de despesa", "elemento"],
             "grupo_despesa": ["grupo de despesa", "grupo"],
+            "categoria_despesa": ["categoria de despesa", "categoria"],
+            "funcao": ["funcao", "funcao de despesa", "funçoes de despesa", "funções", 'funcoes'],
             "acao": ["ação", "projeto atividade"],
             "unidade_orcamentaria": ["unidade orçamentária", "uo", "unidade orçamentaria"],
             "dotacao_inicial": ["dotação inicial"],

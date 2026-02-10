@@ -1,6 +1,10 @@
 const fs = require("fs");
 const caminhoCsv = "../src/data/entidades/natureza.csv";
-
+const { resolverPercentualMinimo } = require("../../utils/sensibilidadeMatcher");
+const PERCENTUAL_PADRAO = 0.7;
+const REGRAS_SENSIBILIDADE = [
+    { palavra: "natureza", percentual: 0.5 }
+];
 /**
  * Normaliza texto para comparação:
  * - lowercase
@@ -71,6 +75,7 @@ class NaturezaService {
         const resultados = [];
         const encontrados = new Set(); // evita duplicidade
 
+
         // -------------------------------
         // 1️⃣ BUSCA POR CÓDIGO
         // -------------------------------
@@ -95,6 +100,11 @@ class NaturezaService {
         // -------------------------------
 
         const textoNormalizado = normalize(frase);
+        const percentualMinimo = resolverPercentualMinimo(
+            textoNormalizado,
+            PERCENTUAL_PADRAO,
+            REGRAS_SENSIBILIDADE
+        );
 
         for (const natureza of this.naturezas) {
             // Se já foi encontrada pelo código, ignora
@@ -115,7 +125,7 @@ class NaturezaService {
             // ✅ MESMO CRITÉRIO PERCENTUAL (≥ 60%)
             const percentual = matches.length / palavras.length;
 
-            if (percentual >= 0.7) {
+            if (percentual >= percentualMinimo) {
                 resultados.push({
                     codigo: natureza.codigo,
                     descricao: natureza.descricao

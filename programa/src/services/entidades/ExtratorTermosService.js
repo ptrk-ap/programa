@@ -16,6 +16,8 @@ class ExtratorTermosService {
             "despesas_pagas",
             "elemento",
             "grupo_despesa",
+            "categoria_despesa",
+            "funcao",
             "despesas_exercicio_pagas"
         ];
     }

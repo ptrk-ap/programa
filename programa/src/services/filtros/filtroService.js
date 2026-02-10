@@ -7,6 +7,8 @@ const ProgramaService = require("./programaService");
 const AcaoService = require("./acaoService");
 const ElementoService = require("./elementoService");
 const GrupoDespesaService = require("./grupodespesaService");
+const CategoriaDespesaService = require("./categoriadespesaService");
+const FuncaoService = require("./funcaoService");
 
 class FiltroService {
     constructor() {
@@ -19,7 +21,9 @@ class FiltroService {
             programa: new ProgramaService(),
             acao: new AcaoService(),
             elemento: new ElementoService(),
-            grupo_despesa: new GrupoDespesaService()
+            grupo_despesa: new GrupoDespesaService(),
+            categoria_despesa: new CategoriaDespesaService(),
+            funcao: new FuncaoService()
         };
     }
 
@@ -37,7 +41,9 @@ class FiltroService {
             programa: [],
             acao: [],
             elemento: [],
-            grupo_despesa: []
+            grupo_despesa: [],
+            categoria_despesa: [],
+            funcao: []
         };
 
         // Percorre cada pedaço da frase que foi quebrado pelo SplitService
@@ -52,6 +58,8 @@ class FiltroService {
             const resAcao = this.services.acao.extrair(trecho);
             const resElem = this.services.elemento.extrair(trecho);
             const resGrupoDespesa = this.services.grupo_despesa.extrair(trecho);
+            const resCategoriaDespesa = this.services.categoria_despesa.extrair(trecho);
+            const resFuncao = this.services.funcao.extrair(trecho);
 
             // Se o service retornar dados (assumindo que retorna array vazio se não achar nada)
             if (resNat?.length) filtrosEncontrados.natureza.push(...resNat);
@@ -62,6 +70,8 @@ class FiltroService {
             if (resAcao?.length) filtrosEncontrados.acao.push(...resAcao);
             if (resElem?.length) filtrosEncontrados.elemento.push(...resElem);
             if (resGrupoDespesa?.length) filtrosEncontrados.grupo_despesa.push(...resGrupoDespesa);
+            if (resCategoriaDespesa?.length) filtrosEncontrados.categoria_despesa.push(...resCategoriaDespesa);
+            if (resFuncao?.length) filtrosEncontrados.funcao.push(...resFuncao);
         });
 
         return filtrosEncontrados;

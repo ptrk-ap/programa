@@ -1,11 +1,10 @@
 const fs = require("fs");
-const caminhoCsv = "../src/data/entidades/grupo_despesa.csv";
+const caminhoCsv = "../src/data/entidades/funcao.csv";
 
 /**
  * Normaliza texto para comparação:
  * - lowercase
  * - remove acentos
- * - facilita match com input do usuário
  */
 function normalize(text) {
     return text
@@ -17,28 +16,26 @@ function normalize(text) {
 
 /**
  * Service responsável por:
- * - carregar o CSV de grupos de despesa
+ * - carregar o CSV de funções
  * - manter os dados em memória
- * - extrair grupos de despesa a partir de uma frase
+ * - extrair funções a partir de uma frase
  *
  * REGRA ESPECIAL:
- * - só permite busca por CÓDIGO se a frase contiver "grupo_despesa"
+ * - só permite busca por CÓDIGO se a frase contiver a palavra "funcao"
  */
-class GrupoDespesaService {
+class FuncaoService {
 
     constructor() {
+        this.funcoes = this.carregarCsv(caminhoCsv);
 
-        // Carrega o CSV uma única vez ao iniciar o serviço
-        this.grupos = this.carregarCsv(caminhoCsv);
-
-        // Índice por código para busca rápida (O(1))
+        // Índice por código
         this.mapaPorCodigo = new Map(
-            this.grupos.map(g => [g.codigo, g])
+            this.funcoes.map(f => [f.codigo, f])
         );
     }
 
     /**
-     * Lê o arquivo CSV e transforma em matriz de objetos
+     * Lê o CSV e transforma em objetos
      */
     carregarCsv(caminho) {
         const conteudo = fs.readFileSync(caminho, "utf8");
@@ -55,7 +52,6 @@ class GrupoDespesaService {
                     descricao: (descricao || "").trim()
                 };
             })
-            // 🔥 FILTRO CRÍTICO
             .filter(item =>
                 item.codigo &&
                 item.descricao &&
@@ -65,36 +61,33 @@ class GrupoDespesaService {
     }
 
     /**
-     * Extrai grupos de despesa de uma frase:
-     * 1. Busca por código (CONDICIONAL)
-     * 2. Busca por descrição (fallback com critério percentual)
-     * 3. Permite múltiplos resultados
+     * Extrai funções de uma frase
      */
     extrair(frase) {
         const resultados = [];
-        const encontrados = new Set(); // evita duplicidade
+        const encontrados = new Set();
 
         const textoNormalizado = normalize(frase);
 
         // -------------------------------
-        // 🔐 REGRA: permite busca por código?
+        // 🔐 REGRA: permite código?
         // -------------------------------
-        const permiteBuscaPorCodigo = textoNormalizado.includes("grupo_despesa");
+        const permiteBuscaPorCodigo = textoNormalizado.includes("funcao");
 
         // -------------------------------
         // 1️⃣ BUSCA POR CÓDIGO (CONDICIONAL)
         // -------------------------------
         if (permiteBuscaPorCodigo) {
-            // Aceita SOMENTE um dígito isolado (ex: "1", "3", "9")
-            const codigos = frase.match(/\b\d\b/g) || [];
+            // aceita 1 ou 2 dígitos isolados
+            const codigos = frase.match(/\b\d{1,2}\b/g) || [];
 
             for (const codigo of codigos) {
-                const grupo = this.mapaPorCodigo.get(codigo);
+                const funcao = this.mapaPorCodigo.get(codigo);
 
-                if (grupo && !encontrados.has(codigo)) {
+                if (funcao && !encontrados.has(codigo)) {
                     resultados.push({
-                        codigo: grupo.codigo,
-                        descricao: grupo.descricao
+                        codigo: funcao.codigo,
+                        descricao: funcao.descricao
                     });
                     encontrados.add(codigo);
                 }
@@ -105,10 +98,10 @@ class GrupoDespesaService {
         // 2️⃣ BUSCA POR DESCRIÇÃO
         // -------------------------------
 
-        for (const grupo of this.grupos) {
-            if (encontrados.has(grupo.codigo)) continue;
+        for (const funcao of this.funcoes) {
+            if (encontrados.has(funcao.codigo)) continue;
 
-            const palavras = normalize(grupo.descricao)
+            const palavras = normalize(funcao.descricao)
                 .split(" ")
                 .filter(p => p.length > 3);
 
@@ -118,15 +111,14 @@ class GrupoDespesaService {
                 textoNormalizado.includes(p)
             );
 
-            // Critério percentual (≥ 60%)
             const percentual = matches.length / palavras.length;
 
-            if (percentual >= 0.6) {
+            if (percentual >= 0.7) {
                 resultados.push({
-                    codigo: grupo.codigo,
-                    descricao: grupo.descricao
+                    codigo: funcao.codigo,
+                    descricao: funcao.descricao
                 });
-                encontrados.add(grupo.codigo);
+                encontrados.add(funcao.codigo);
             }
         }
 
@@ -134,4 +126,4 @@ class GrupoDespesaService {
     }
 }
 
-module.exports = GrupoDespesaService;
+module.exports = FuncaoService;
