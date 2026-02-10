@@ -1,0 +1,148 @@
+const fs = require("fs");
+const caminhoCsv = "../src/data/entidades/unidade_gestora.csv";
+
+/**
+ * Normaliza texto para comparação:
+ * - lowercase
+ * - remove acentos
+ * - trim
+ */
+function normalize(text) {
+    return text
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .trim();
+}
+
+class UnidadeGestoraService {
+
+    constructor() {
+
+        // Carrega CSV uma única vez
+        this.unidades = this.carregarCsv(caminhoCsv);
+
+        // Índice por código (O(1))
+        this.mapaPorCodigo = new Map(
+            this.unidades.map(u => [u.codigo, u])
+        );
+
+        // Índice por mnemônico (case-insensitive)
+        this.mapaPorMnemonico = new Map(
+            this.unidades.map(u => [normalize(u.mnemonico), u])
+        );
+    }
+
+    /**
+     * Lê CSV e transforma em objetos
+     */
+    carregarCsv(caminho) {
+        const conteudo = fs.readFileSync(caminho, "utf8");
+
+        return conteudo
+            .split(/\r?\n/)
+            .filter(Boolean)
+            .slice(1) // remove cabeçalho
+            .map(linha => {
+                const [codigo, mnemonico, descricao] = linha.split(",");
+
+                return {
+                    codigo: (codigo || "").trim(),
+                    mnemonico: (mnemonico || "").trim(),
+                    descricao: (descricao || "").trim()
+                };
+            })
+            // 🔥 FILTRO CRÍTICO
+            .filter(item =>
+                item.codigo &&
+                item.mnemonico &&
+                item.descricao &&
+                /^\d{2}0\d{3}$/.test(item.codigo)
+            );
+    }
+
+    /**
+     * Extrai unidades gestoras de uma frase:
+     * 1. Código
+     * 2. Mnemônico
+     * 3. Descrição (fallback)
+     */
+    extrair(frase) {
+        const resultados = [];
+        const encontrados = new Set();
+
+        const textoNormalizado = normalize(frase);
+
+        // -------------------------------
+        // 1️⃣ BUSCA POR CÓDIGO
+        // -------------------------------
+
+        const codigos = frase.match(/\b\d{2}0\d{3}\b/g) || [];
+
+        for (const codigo of codigos) {
+            const unidade = this.mapaPorCodigo.get(codigo);
+
+            if (unidade && !encontrados.has(codigo)) {
+                resultados.push({
+                    codigo: unidade.codigo,
+                    // mnemonico: unidade.mnemonico,
+                    descricao: unidade.descricao,
+                    //origem: "codigo"
+                });
+                encontrados.add(codigo);
+            }
+        }
+
+        // -------------------------------
+        // 2️⃣ BUSCA POR MNEMÔNICO
+        // -------------------------------
+
+        const tokens = textoNormalizado.split(/\s+/);
+
+        for (const token of tokens) {
+            const unidade = this.mapaPorMnemonico.get(token);
+
+            if (unidade && !encontrados.has(unidade.codigo)) {
+                resultados.push({
+                    codigo: unidade.codigo,
+                    // mnemonico: unidade.mnemonico,
+                    descricao: unidade.descricao,
+                    //origem: "mnemonico"
+                });
+                encontrados.add(unidade.codigo);
+            }
+        }
+
+        // -------------------------------
+        // 3️⃣ BUSCA POR DESCRIÇÃO
+        // -------------------------------
+
+        for (const unidade of this.unidades) {
+            if (encontrados.has(unidade.codigo)) continue;
+
+            const palavras = normalize(unidade.descricao)
+                .split(" ")
+                .filter(p => p.length > 3);
+
+            const matches = palavras.filter(p =>
+                textoNormalizado.includes(p)
+            );
+
+            // Critério: 50% das palavras
+            const percentual = matches.length / palavras.length;
+
+            if (percentual >= 0.6) {
+                resultados.push({
+                    codigo: unidade.codigo,
+                    descricao: unidade.descricao,
+                    //origem: "descricao"
+                });
+                encontrados.add(unidade.codigo);
+            }
+        }
+
+        return resultados;
+    }
+}
+
+module.exports = UnidadeGestoraService;
