@@ -1,9 +1,11 @@
 const fs = require("fs");
-const caminhoCsv = "../src/data/entidades/funcao.csv";
+const caminhoCsv = "../src/data/entidades/poder.csv";
 const { resolverPercentualMinimo } = require("../../utils/sensibilidadeMatcher");
+
 const PERCENTUAL_PADRAO = 0.7;
+
 const REGRAS_SENSIBILIDADE = [
-    { palavra: "funcao", percentual: 0.5 }
+    { palavra: "poder", percentual: 0.5 }
 ];
 
 /**
@@ -20,22 +22,34 @@ function normalize(text) {
 }
 
 /**
+ * Remove zeros à esquerda
+ * Permite aceitar 01 ou 1
+ */
+function normalizarCodigo(codigo) {
+    return String(parseInt(codigo, 10));
+}
+
+/**
  * Service responsável por:
- * - carregar o CSV de funções
+ * - carregar o CSV de poderes
  * - manter os dados em memória
- * - extrair funções a partir de uma frase
+ * - extrair poderes a partir de uma frase
  *
  * REGRA ESPECIAL:
- * - só permite busca por CÓDIGO se a frase contiver a palavra "funcao"
+ * - só permite busca por CÓDIGO se a frase contiver "poder"
  */
-class FuncaoService {
+class PoderService {
 
     constructor() {
-        this.funcoes = this.carregarCsv(caminhoCsv);
 
-        // Índice por código
+        this.poderes = this.carregarCsv(caminhoCsv);
+
+        // Índice por código normalizado
         this.mapaPorCodigo = new Map(
-            this.funcoes.map(f => [f.codigo, f])
+            this.poderes.map(p => [
+                normalizarCodigo(p.codigo),
+                p
+            ])
         );
     }
 
@@ -48,7 +62,7 @@ class FuncaoService {
         return conteudo
             .split(/\r?\n/)
             .filter(Boolean)
-            .slice(1) // remove cabeçalho
+            .slice(1)
             .map(linha => {
                 const [codigo, descricao] = linha.split(",");
 
@@ -66,40 +80,45 @@ class FuncaoService {
     }
 
     /**
-     * Extrai funções de uma frase
+     * Extrai poderes de uma frase
      */
     extrair(frase) {
+
         const resultados = [];
         const encontrados = new Set();
 
         const textoNormalizado = normalize(frase);
+
         const percentualMinimo = resolverPercentualMinimo(
             textoNormalizado,
             PERCENTUAL_PADRAO,
             REGRAS_SENSIBILIDADE
         );
 
-        // -------------------------------
-        // 🔐 REGRA: permite código?
-        // -------------------------------
-        const permiteBuscaPorCodigo = textoNormalizado.includes("funcao");
+        // 🔐 Só permite código se mencionar "poder"
+        const permiteBuscaPorCodigo = textoNormalizado.includes("poder");
 
         // -------------------------------
         // 1️⃣ BUSCA POR CÓDIGO (CONDICIONAL)
         // -------------------------------
         if (permiteBuscaPorCodigo) {
-            // aceita 1 ou 2 dígitos isolados
+
             const codigos = frase.match(/\b\d{1,2}\b/g) || [];
 
-            for (const codigo of codigos) {
-                const funcao = this.mapaPorCodigo.get(codigo);
+            for (const codigoBruto of codigos) {
 
-                if (funcao && !encontrados.has(codigo)) {
+                const codigoNormalizado = normalizarCodigo(codigoBruto);
+
+                const poder = this.mapaPorCodigo.get(codigoNormalizado);
+
+                if (poder && !encontrados.has(codigoNormalizado)) {
+
                     resultados.push({
-                        codigo: funcao.codigo,
-                        descricao: funcao.descricao
+                        codigo: poder.codigo,
+                        descricao: poder.descricao
                     });
-                    encontrados.add(codigo);
+
+                    encontrados.add(codigoNormalizado);
                 }
             }
         }
@@ -108,10 +127,11 @@ class FuncaoService {
         // 2️⃣ BUSCA POR DESCRIÇÃO
         // -------------------------------
 
-        for (const funcao of this.funcoes) {
-            if (encontrados.has(funcao.codigo)) continue;
+        for (const poder of this.poderes) {
 
-            const palavras = normalize(funcao.descricao)
+            if (encontrados.has(normalizarCodigo(poder.codigo))) continue;
+
+            const palavras = normalize(poder.descricao)
                 .split(" ")
                 .filter(p => p.length > 3);
 
@@ -124,11 +144,13 @@ class FuncaoService {
             const percentual = matches.length / palavras.length;
 
             if (percentual >= percentualMinimo) {
+
                 resultados.push({
-                    codigo: funcao.codigo,
-                    descricao: funcao.descricao
+                    codigo: poder.codigo,
+                    descricao: poder.descricao
                 });
-                encontrados.add(funcao.codigo);
+
+                encontrados.add(normalizarCodigo(poder.codigo));
             }
         }
 
@@ -136,4 +158,4 @@ class FuncaoService {
     }
 }
 
-module.exports = FuncaoService;
+module.exports = PoderService;

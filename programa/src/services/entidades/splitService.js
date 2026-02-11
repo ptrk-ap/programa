@@ -5,6 +5,7 @@ class SplitService {
     constructor() {
         // Lista manual de chaves (idêntica ao seu ExtratorTermosService)
         this.chavesConfiguradas = [
+            "poder",
             "unidade_gestora",
             "fonte",
             "natureza",
@@ -14,7 +15,10 @@ class SplitService {
             "funcao",
             "programa",
             "acao",
+            "eixo",
+            "ods",
             "unidade_orcamentaria",
+            "emenda",
             "dotacao_inicial",
             "despesas_empenhadas",
             "despesas_pagas",

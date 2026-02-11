@@ -6,23 +6,159 @@ class OrcamentoService {
         // IMPORTANTE: A ordem aqui não importa tanto quanto a lógica de ordenação 
         // que adicionei no método traduzirParaTermosSql.
         this.dicionario = {
-            "unidade_gestora": ["unidade gestora", "ug", "gestora"],
-            "fonte": ["fonte", "fonte de recurso", "origem do recurso"],
-            "natureza": ["natureza", "natureza da despesa", "nd"],
-            "programa": ["programa", "programa de governo"],
-            "elemento": ["elemento de despesa", "elemento"],
-            "grupo_despesa": ["grupo de despesa", "grupo"],
-            "categoria_despesa": ["categoria de despesa", "categoria"],
-            "funcao": ["funcao", "funcao de despesa", "funçoes de despesa", "funções", 'funcoes'],
-            "acao": ["ação", "projeto atividade"],
-            "unidade_orcamentaria": ["unidade orçamentária", "uo", "unidade orçamentaria"],
-            "dotacao_inicial": ["dotação inicial"],
-            "despesas_empenhadas": ["despesas empenhadas", "despesa empenhada", "empenhado", "empenhadas"],
+
+            "poder": [
+                "poder",
+                "poderes"
+            ],
+
+            "unidade_gestora": [
+                "unidade gestora",
+                "unidades gestoras",
+                "ug",
+                "ugs",
+                "gestora",
+                "gestoras"
+            ],
+
+            "fonte": [
+                "fonte",
+                "fontes",
+                "fonte de recurso",
+                "fontes de recurso",
+                "origem do recurso",
+                "origens do recurso",
+                "origens de recurso"
+            ],
+
+            "natureza": [
+                "natureza",
+                "naturezas",
+                "natureza da despesa",
+                "naturezas da despesa",
+                "nd",
+                "nds"
+            ],
+
+            "programa": [
+                "programa",
+                "programas",
+                "programa de governo",
+                "programas de governo"
+            ],
+
+            "elemento": [
+                "elemento de despesa",
+                "elementos de despesa",
+                "elemento",
+                "elementos"
+            ],
+
+            "grupo_despesa": [
+                "grupo de despesa",
+                "grupos de despesa",
+                "grupo",
+                "grupos"
+            ],
+
+            "categoria_despesa": [
+                "categoria de despesa",
+                "categorias de despesa",
+                "categoria",
+                "categorias"
+            ],
+
+            "funcao": [
+                "funcao",
+                "funcoes",
+                "função",
+                "funções",
+                "funcao de despesa",
+                "funcoes de despesa",
+                "função de despesa",
+                "funções de despesa"
+            ],
+
+            "acao": [
+                "ação",
+                "acoes",
+                "ações",
+                "projeto atividade",
+                "projetos atividades",
+                "projeto atividades",
+                "projetos atividade"
+            ],
+
+            "ods": [
+                "ods",
+                "odss",
+                "objetivo de desenvolvimento sustentável",
+                "objetivos de desenvolvimento sustentável"
+            ],
+
+            "eixo": [
+                "eixo",
+                "eixos",
+                "eixo de governo",
+                "eixos de governo",
+                "eixo de programa",
+                "eixos de programa"
+            ],
+
+            "unidade_orcamentaria": [
+                "unidade orçamentária",
+                "unidades orçamentárias",
+                "unidade orcamentaria",
+                "unidades orcamentarias",
+                "uo",
+                "uos"
+            ],
+
+            "emenda": [
+                "emenda",
+                "emendas"
+            ],
+
+
+            "dotacao_inicial": [
+                "dotação inicial",
+                "dotações iniciais",
+                "dotacao inicial",
+                "dotacoes iniciais"
+            ],
+
+            "despesas_empenhadas": [
+                "despesa empenhada",
+                "despesas empenhadas",
+                "empenhado",
+                "empenhados",
+                "empenhada",
+                "empenhadas"
+            ],
+
             // Termo longo (específico)
-            "despesas_exercicio_pagas": ["despesas do exercício pagas", "despesa do exercicio paga", "pago no exercicio", "pagos no exercicio"],
+            "despesas_exercicio_pagas": [
+                "despesas do exercício pagas",
+                "despesa do exercício paga",
+                "despesas do exercicio pagas",
+                "despesa do exercicio paga",
+                "pago no exercício",
+                "pagos no exercício",
+                "pago no exercicio",
+                "pagos no exercicio"
+            ],
+
             // Termo curto (genérico)
-            "despesas_pagas": ["despesas pagas", "despesa paga", "pago", "pagos"]
+            "despesas_pagas": [
+                "despesa paga",
+                "despesas pagas",
+                "pago",
+                "pagos",
+                "paga",
+                "pagas"
+            ]
         };
+
 
         this._prepararDicionario();
     }

@@ -1,9 +1,11 @@
 const fs = require("fs");
-const caminhoCsv = "../src/data/entidades/funcao.csv";
+const caminhoCsv = "../src/data/entidades/eixo.csv";
 const { resolverPercentualMinimo } = require("../../utils/sensibilidadeMatcher");
-const PERCENTUAL_PADRAO = 0.7;
+
+const PERCENTUAL_PADRAO = 0.5;
+
 const REGRAS_SENSIBILIDADE = [
-    { palavra: "funcao", percentual: 0.5 }
+    { palavra: "eixo", percentual: 0.5 }
 ];
 
 /**
@@ -20,22 +22,34 @@ function normalize(text) {
 }
 
 /**
+ * Remove zeros à esquerda do código
+ * Permite aceitar 01 ou 1, 02 ou 2, etc.
+ */
+function normalizarCodigo(codigo) {
+    return String(parseInt(codigo, 10));
+}
+
+/**
  * Service responsável por:
- * - carregar o CSV de funções
+ * - carregar o CSV de eixos
  * - manter os dados em memória
- * - extrair funções a partir de uma frase
+ * - extrair eixos a partir de uma frase
  *
  * REGRA ESPECIAL:
- * - só permite busca por CÓDIGO se a frase contiver a palavra "funcao"
+ * - só permite busca por CÓDIGO se a frase contiver "eixo"
  */
-class FuncaoService {
+class EixoService {
 
     constructor() {
-        this.funcoes = this.carregarCsv(caminhoCsv);
 
-        // Índice por código
+        this.eixos = this.carregarCsv(caminhoCsv);
+
+        // Índice por código normalizado (remove zero à esquerda)
         this.mapaPorCodigo = new Map(
-            this.funcoes.map(f => [f.codigo, f])
+            this.eixos.map(e => [
+                normalizarCodigo(e.codigo),
+                e
+            ])
         );
     }
 
@@ -66,40 +80,46 @@ class FuncaoService {
     }
 
     /**
-     * Extrai funções de uma frase
+     * Extrai eixos de uma frase
      */
     extrair(frase) {
+
         const resultados = [];
         const encontrados = new Set();
 
         const textoNormalizado = normalize(frase);
+
         const percentualMinimo = resolverPercentualMinimo(
             textoNormalizado,
             PERCENTUAL_PADRAO,
             REGRAS_SENSIBILIDADE
         );
 
-        // -------------------------------
-        // 🔐 REGRA: permite código?
-        // -------------------------------
-        const permiteBuscaPorCodigo = textoNormalizado.includes("funcao");
+        // 🔐 Permite busca por código somente se mencionar "eixo"
+        const permiteBuscaPorCodigo = textoNormalizado.includes("eixo");
 
         // -------------------------------
         // 1️⃣ BUSCA POR CÓDIGO (CONDICIONAL)
         // -------------------------------
         if (permiteBuscaPorCodigo) {
+
             // aceita 1 ou 2 dígitos isolados
             const codigos = frase.match(/\b\d{1,2}\b/g) || [];
 
-            for (const codigo of codigos) {
-                const funcao = this.mapaPorCodigo.get(codigo);
+            for (const codigoBruto of codigos) {
 
-                if (funcao && !encontrados.has(codigo)) {
+                const codigoNormalizado = normalizarCodigo(codigoBruto);
+
+                const eixo = this.mapaPorCodigo.get(codigoNormalizado);
+
+                if (eixo && !encontrados.has(codigoNormalizado)) {
+
                     resultados.push({
-                        codigo: funcao.codigo,
-                        descricao: funcao.descricao
+                        codigo: eixo.codigo, // mantém formato original
+                        descricao: eixo.descricao
                     });
-                    encontrados.add(codigo);
+
+                    encontrados.add(codigoNormalizado);
                 }
             }
         }
@@ -108,10 +128,11 @@ class FuncaoService {
         // 2️⃣ BUSCA POR DESCRIÇÃO
         // -------------------------------
 
-        for (const funcao of this.funcoes) {
-            if (encontrados.has(funcao.codigo)) continue;
+        for (const eixo of this.eixos) {
 
-            const palavras = normalize(funcao.descricao)
+            if (encontrados.has(normalizarCodigo(eixo.codigo))) continue;
+
+            const palavras = normalize(eixo.descricao)
                 .split(" ")
                 .filter(p => p.length > 3);
 
@@ -124,11 +145,13 @@ class FuncaoService {
             const percentual = matches.length / palavras.length;
 
             if (percentual >= percentualMinimo) {
+
                 resultados.push({
-                    codigo: funcao.codigo,
-                    descricao: funcao.descricao
+                    codigo: eixo.codigo,
+                    descricao: eixo.descricao
                 });
-                encontrados.add(funcao.codigo);
+
+                encontrados.add(normalizarCodigo(eixo.codigo));
             }
         }
 
@@ -136,4 +159,4 @@ class FuncaoService {
     }
 }
 
-module.exports = FuncaoService;
+module.exports = EixoService;

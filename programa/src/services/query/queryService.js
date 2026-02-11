@@ -5,14 +5,20 @@ class QueryService {
 
         // 🔥 Hierarquia oficial das entidades
         this.ENTITY_COLUMNS = [
+            "poder",
             "unidade_gestora",
             "unidade_orcamentaria",
+            "eixo",
             "programa",
             "acao",
-            "fonte",
-            "natureza",
+            "ods",
+            "emenda",
+            "funcao",
+            "categoria_despesa",
+            "grupo_despesa",
             "elemento",
-            "grupo_despesa"
+            "natureza",
+            "fonte"
 
         ];
 

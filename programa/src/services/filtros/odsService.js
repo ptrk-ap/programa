@@ -1,9 +1,11 @@
 const fs = require("fs");
-const caminhoCsv = "../src/data/entidades/funcao.csv";
+const caminhoCsv = "../src/data/entidades/ods.csv";
 const { resolverPercentualMinimo } = require("../../utils/sensibilidadeMatcher");
+
 const PERCENTUAL_PADRAO = 0.7;
+
 const REGRAS_SENSIBILIDADE = [
-    { palavra: "funcao", percentual: 0.5 }
+    { palavra: "ods", percentual: 0.5 }
 ];
 
 /**
@@ -21,21 +23,21 @@ function normalize(text) {
 
 /**
  * Service responsável por:
- * - carregar o CSV de funções
+ * - carregar o CSV de ODS
  * - manter os dados em memória
- * - extrair funções a partir de uma frase
+ * - extrair ODS a partir de uma frase
  *
  * REGRA ESPECIAL:
- * - só permite busca por CÓDIGO se a frase contiver a palavra "funcao"
+ * - só permite busca por CÓDIGO se a frase contiver "ods"
  */
-class FuncaoService {
+class OdsService {
 
     constructor() {
-        this.funcoes = this.carregarCsv(caminhoCsv);
+        this.odsList = this.carregarCsv(caminhoCsv);
 
         // Índice por código
         this.mapaPorCodigo = new Map(
-            this.funcoes.map(f => [f.codigo, f])
+            this.odsList.map(o => [o.codigo, o])
         );
     }
 
@@ -48,7 +50,7 @@ class FuncaoService {
         return conteudo
             .split(/\r?\n/)
             .filter(Boolean)
-            .slice(1) // remove cabeçalho
+            .slice(1)
             .map(linha => {
                 const [codigo, descricao] = linha.split(",");
 
@@ -66,13 +68,14 @@ class FuncaoService {
     }
 
     /**
-     * Extrai funções de uma frase
+     * Extrai ODS de uma frase
      */
     extrair(frase) {
         const resultados = [];
         const encontrados = new Set();
 
         const textoNormalizado = normalize(frase);
+
         const percentualMinimo = resolverPercentualMinimo(
             textoNormalizado,
             PERCENTUAL_PADRAO,
@@ -82,22 +85,22 @@ class FuncaoService {
         // -------------------------------
         // 🔐 REGRA: permite código?
         // -------------------------------
-        const permiteBuscaPorCodigo = textoNormalizado.includes("funcao");
+        const permiteBuscaPorCodigo = textoNormalizado.includes("ods");
 
         // -------------------------------
         // 1️⃣ BUSCA POR CÓDIGO (CONDICIONAL)
         // -------------------------------
         if (permiteBuscaPorCodigo) {
-            // aceita 1 ou 2 dígitos isolados
+            // aceita 1 ou 2 dígitos isolados (0 a 17)
             const codigos = frase.match(/\b\d{1,2}\b/g) || [];
 
             for (const codigo of codigos) {
-                const funcao = this.mapaPorCodigo.get(codigo);
+                const ods = this.mapaPorCodigo.get(codigo);
 
-                if (funcao && !encontrados.has(codigo)) {
+                if (ods && !encontrados.has(codigo)) {
                     resultados.push({
-                        codigo: funcao.codigo,
-                        descricao: funcao.descricao
+                        codigo: ods.codigo,
+                        descricao: ods.descricao
                     });
                     encontrados.add(codigo);
                 }
@@ -108,10 +111,10 @@ class FuncaoService {
         // 2️⃣ BUSCA POR DESCRIÇÃO
         // -------------------------------
 
-        for (const funcao of this.funcoes) {
-            if (encontrados.has(funcao.codigo)) continue;
+        for (const ods of this.odsList) {
+            if (encontrados.has(ods.codigo)) continue;
 
-            const palavras = normalize(funcao.descricao)
+            const palavras = normalize(ods.descricao)
                 .split(" ")
                 .filter(p => p.length > 3);
 
@@ -125,10 +128,10 @@ class FuncaoService {
 
             if (percentual >= percentualMinimo) {
                 resultados.push({
-                    codigo: funcao.codigo,
-                    descricao: funcao.descricao
+                    codigo: ods.codigo,
+                    descricao: ods.descricao
                 });
-                encontrados.add(funcao.codigo);
+                encontrados.add(ods.codigo);
             }
         }
 
@@ -136,4 +139,4 @@ class FuncaoService {
     }
 }
 
-module.exports = FuncaoService;
+module.exports = OdsService;

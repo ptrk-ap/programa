@@ -9,6 +9,10 @@ const ElementoService = require("./elementoService");
 const GrupoDespesaService = require("./grupodespesaService");
 const CategoriaDespesaService = require("./categoriadespesaService");
 const FuncaoService = require("./funcaoService");
+const OdsService = require("./odsService");
+const EixoService = require("./eixoService");
+const PoderService = require("./poderService");
+const EmendaService = require("./emendaService");
 
 class FiltroService {
     constructor() {
@@ -23,7 +27,11 @@ class FiltroService {
             elemento: new ElementoService(),
             grupo_despesa: new GrupoDespesaService(),
             categoria_despesa: new CategoriaDespesaService(),
-            funcao: new FuncaoService()
+            funcao: new FuncaoService(),
+            ods: new OdsService(),
+            eixo: new EixoService(),
+            poder: new PoderService(),
+            emenda: new EmendaService()
         };
     }
 
@@ -43,7 +51,11 @@ class FiltroService {
             elemento: [],
             grupo_despesa: [],
             categoria_despesa: [],
-            funcao: []
+            funcao: [],
+            ods: [],
+            eixo: [],
+            poder: [],
+            emenda: []
         };
 
         // Percorre cada pedaço da frase que foi quebrado pelo SplitService
@@ -60,6 +72,10 @@ class FiltroService {
             const resGrupoDespesa = this.services.grupo_despesa.extrair(trecho);
             const resCategoriaDespesa = this.services.categoria_despesa.extrair(trecho);
             const resFuncao = this.services.funcao.extrair(trecho);
+            const resOds = this.services.ods.extrair(trecho);
+            const resEixo = this.services.eixo.extrair(trecho);
+            const resPoder = this.services.poder.extrair(trecho);
+            const resEmenda = this.services.emenda.extrair(trecho);
 
             // Se o service retornar dados (assumindo que retorna array vazio se não achar nada)
             if (resNat?.length) filtrosEncontrados.natureza.push(...resNat);
@@ -72,6 +88,10 @@ class FiltroService {
             if (resGrupoDespesa?.length) filtrosEncontrados.grupo_despesa.push(...resGrupoDespesa);
             if (resCategoriaDespesa?.length) filtrosEncontrados.categoria_despesa.push(...resCategoriaDespesa);
             if (resFuncao?.length) filtrosEncontrados.funcao.push(...resFuncao);
+            if (resOds?.length) filtrosEncontrados.ods.push(...resOds);
+            if (resEixo?.length) filtrosEncontrados.eixo.push(...resEixo);
+            if (resPoder?.length) filtrosEncontrados.poder.push(...resPoder);
+            if (resEmenda?.length) filtrosEncontrados.emenda.push(...resEmenda);
         });
 
         return filtrosEncontrados;

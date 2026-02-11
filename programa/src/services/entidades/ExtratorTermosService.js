@@ -11,14 +11,18 @@ class ExtratorTermosService {
             "programa",
             "acao",
             "unidade_orcamentaria",
-            "dotacao_inicial",
-            "despesas_empenhadas",
-            "despesas_pagas",
             "elemento",
             "grupo_despesa",
             "categoria_despesa",
             "funcao",
-            "despesas_exercicio_pagas"
+            "dotacao_inicial",
+            "despesas_empenhadas",
+            "despesas_pagas",
+            "despesas_exercicio_pagas",
+            "ods",
+            "eixo",
+            "poder",
+            "emenda"
         ];
     }
 
