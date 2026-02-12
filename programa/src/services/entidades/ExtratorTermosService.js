@@ -22,7 +22,10 @@ class ExtratorTermosService {
             "ods",
             "eixo",
             "poder",
-            "emenda"
+            "emenda",
+            "contrato",
+            "convenio_despesa",
+            "convenio_receita"
         ];
     }
 

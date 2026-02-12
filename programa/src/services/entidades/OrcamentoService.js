@@ -119,6 +119,29 @@ class OrcamentoService {
                 "emendas"
             ],
 
+            "contrato": [
+                "contrato",
+                "contratos"
+            ],
+            "convenio_despesa": [
+                "convenio despesa",
+                "convenios despesas",
+                "convenio despesas",
+                "convenios despesas",
+                "convenio de despesa",
+                "convenios de despesas"
+            ],
+            "convenio_receita": [
+                "convenio receita",
+                "convenios receitas",
+                "convenio receitas",
+                "convenios receitas",
+                "convenio de receita",
+                "convenios de receitas",
+                "convenio",
+                "convenios"
+            ],
+
 
             "dotacao_inicial": [
                 "dotação inicial",

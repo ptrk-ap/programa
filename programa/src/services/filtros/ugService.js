@@ -12,8 +12,10 @@ function normalize(text) {
         .toLowerCase()
         .normalize("NFD")
         .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^\w\s]/g, "") // remove pontuação
         .trim();
 }
+
 
 class UnidadeGestoraService {
 
@@ -122,7 +124,11 @@ class UnidadeGestoraService {
 
             const palavras = normalize(unidade.descricao)
                 .split(" ")
-                .filter(p => p.length > 3);
+                .filter(p =>
+                    p.length > 3 &&
+                    p !== "estado" // 🔥 ignora somente essa palavra
+                );
+
 
             const matches = palavras.filter(p =>
                 textoNormalizado.includes(p)

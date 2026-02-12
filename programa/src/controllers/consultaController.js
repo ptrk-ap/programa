@@ -29,6 +29,7 @@ async function consulta(req, res, next) {
 
         //quebra a frase em pedaços
         const divisor = Splitservice.quebrarFrase(fraseProcessada);
+        console.log(parametrosEncontrados);
 
         //procura filtros nos pedaços
         const filtros = filtroService.processarFiltros(divisor);

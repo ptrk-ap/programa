@@ -92,8 +92,11 @@ class UnidadeOrcamentariaService {
             if (encontrados.has(unidade.codigo)) continue;
 
             const palavras = normalize(unidade.descricao)
-                .split(/\s+/)
-                .filter(p => p.length > 3);
+                .split(" ")
+                .filter(p =>
+                    p.length > 3 &&
+                    p !== "estado" // 🔥 ignora somente essa palavra
+                );
 
             if (!palavras.length) continue;
 

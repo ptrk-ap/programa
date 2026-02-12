@@ -13,6 +13,9 @@ const OdsService = require("./odsService");
 const EixoService = require("./eixoService");
 const PoderService = require("./poderService");
 const EmendaService = require("./emendaService");
+const ContratoService = require("./contratoService");
+const ConvenioDespesaService = require("./conveniodespesaService");
+const ConvenioReceitaService = require("./convenioreceitaService");
 
 class FiltroService {
     constructor() {
@@ -31,7 +34,10 @@ class FiltroService {
             ods: new OdsService(),
             eixo: new EixoService(),
             poder: new PoderService(),
-            emenda: new EmendaService()
+            emenda: new EmendaService(),
+            contrato: new ContratoService(),
+            convenio_despesa: new ConvenioDespesaService(),
+            convenio_receita: new ConvenioReceitaService()
         };
     }
 
@@ -55,7 +61,10 @@ class FiltroService {
             ods: [],
             eixo: [],
             poder: [],
-            emenda: []
+            emenda: [],
+            contrato: [],
+            convenio_despesa: [],
+            convenio_receita: []
         };
 
         // Percorre cada pedaço da frase que foi quebrado pelo SplitService
@@ -76,6 +85,9 @@ class FiltroService {
             const resEixo = this.services.eixo.extrair(trecho);
             const resPoder = this.services.poder.extrair(trecho);
             const resEmenda = this.services.emenda.extrair(trecho);
+            const resContrato = this.services.contrato.extrair(trecho);
+            const resConvenioDespesa = this.services.convenio_despesa.extrair(trecho);
+            const resConvenioReceita = this.services.convenio_receita.extrair(trecho);
 
             // Se o service retornar dados (assumindo que retorna array vazio se não achar nada)
             if (resNat?.length) filtrosEncontrados.natureza.push(...resNat);
@@ -92,6 +104,9 @@ class FiltroService {
             if (resEixo?.length) filtrosEncontrados.eixo.push(...resEixo);
             if (resPoder?.length) filtrosEncontrados.poder.push(...resPoder);
             if (resEmenda?.length) filtrosEncontrados.emenda.push(...resEmenda);
+            if (resContrato?.length) filtrosEncontrados.contrato.push(...resContrato);
+            if (resConvenioDespesa?.length) filtrosEncontrados.convenio_despesa.push(...resConvenioDespesa);
+            if (resConvenioReceita?.length) filtrosEncontrados.convenio_receita.push(...resConvenioReceita);
         });
 
         return filtrosEncontrados;

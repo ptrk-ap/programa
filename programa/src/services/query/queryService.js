@@ -18,7 +18,11 @@ class QueryService {
             "grupo_despesa",
             "elemento",
             "natureza",
-            "fonte"
+            "fonte",
+            "convenio_receita",
+            "convenio_despesa",
+            "contrato",
+            "emenda"
 
         ];
 
