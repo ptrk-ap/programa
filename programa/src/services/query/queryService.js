@@ -1,9 +1,15 @@
-// queryService.js
 class QueryService {
     constructor() {
+
         this.table = "execucao";
 
-        // 🔥 Hierarquia oficial das entidades
+        // Hierarquia oficial
+        this.HIERARCHY_LEVEL = {
+            poder: 1,
+            unidade_gestora: 2,
+            unidade_orcamentaria: 3
+        };
+
         this.ENTITY_COLUMNS = [
             "poder",
             "unidade_gestora",
@@ -16,19 +22,18 @@ class QueryService {
             "funcao",
             "categoria_despesa",
             "grupo_despesa",
-            "elemento",
-            "natureza",
+            "elemento_despesa",
+            "natureza_despesa",
             "fonte",
             "convenio_receita",
             "convenio_despesa",
-            "contrato",
-            "emenda"
-
+            "contrato"
         ];
 
         this.VALUE_COLUMNS = [
             "dotacao_inicial",
             "despesas_empenhadas",
+            "despesas_liquidadas",
             "despesas_exercicio_pagas",
             "despesas_pagas"
         ];
@@ -57,6 +62,7 @@ class QueryService {
     }
 
     buildQuery(camposSolicitados = [], filtrosEncontrados = {}) {
+
         this._validateFields(camposSolicitados);
 
         const entidadesSolicitadas = camposSolicitados.filter(c =>
@@ -72,7 +78,7 @@ class QueryService {
         }
 
         // -------------------------------
-        // Processa filtros
+        // PROCESSA FILTROS
         // -------------------------------
 
         const filtrosValidos = {};
@@ -89,20 +95,21 @@ class QueryService {
             }
         }
 
-        // Entidades finais = solicitadas + filtradas
+        // -------------------------------
+        // DEFINE ENTIDADES FINAIS
+        // -------------------------------
+
         const entidadesFinais = new Set([
             ...entidadesSolicitadas,
             ...Object.keys(filtrosValidos)
         ]);
 
         if (entidadesFinais.size === 0) {
-            throw new Error(
-                "É obrigatório informar ao menos uma entidade (nos campos ou nos filtros)."
-            );
+            throw new Error("É obrigatório informar ao menos uma entidade.");
         }
 
         // -------------------------------
-        // SELECT e GROUP BY (ordem hierárquica)
+        // SELECT + GROUP BY
         // -------------------------------
 
         const selectParts = [];
@@ -115,7 +122,6 @@ class QueryService {
             }
         }
 
-        // Campos de valor sempre depois
         for (const val of valoresSolicitados) {
             selectParts.push(
                 `SUM(${this._quoteIdent(val)}) AS ${this._quoteIdent(`soma_${val}`)}`
@@ -123,22 +129,80 @@ class QueryService {
         }
 
         // -------------------------------
-        // WHERE
+        // CONSTRUÇÃO DO WHERE COM HIERARQUIA
         // -------------------------------
 
-        const whereParts = [];
         const params = [];
 
-        for (const entidade of this.ENTITY_COLUMNS) {
-            if (!filtrosValidos[entidade]) continue;
+        const hierarquicos = {};
+        const independentes = {};
 
-            const values = filtrosValidos[entidade];
-            const placeholders = values.map(() => "?").join(", ");
+        for (const [entidade, valores] of Object.entries(filtrosValidos)) {
 
-            whereParts.push(
+            const nivel = this.HIERARCHY_LEVEL[entidade];
+
+            if (nivel) {
+                if (!hierarquicos[nivel]) {
+                    hierarquicos[nivel] = {};
+                }
+                hierarquicos[nivel][entidade] = valores;
+            } else {
+                independentes[entidade] = valores;
+            }
+        }
+
+        const blocosHierarquicos = [];
+
+        for (const nivel of Object.keys(hierarquicos)) {
+
+            const entidadesNivel = hierarquicos[nivel];
+            const partes = [];
+
+            for (const [entidade, valores] of Object.entries(entidadesNivel)) {
+
+                const placeholders = valores.map(() => "?").join(", ");
+                partes.push(
+                    `${this._quoteIdent(entidade)} IN (${placeholders})`
+                );
+
+                params.push(...valores);
+            }
+
+            blocosHierarquicos.push(`(${partes.join(" AND ")})`);
+        }
+
+        const partesIndependentes = [];
+
+        for (const [entidade, valores] of Object.entries(independentes)) {
+
+            const placeholders = valores.map(() => "?").join(", ");
+
+            partesIndependentes.push(
                 `${this._quoteIdent(entidade)} IN (${placeholders})`
             );
-            params.push(...values);
+
+            params.push(...valores);
+        }
+
+        let whereClause = "";
+
+        if (blocosHierarquicos.length > 0 && partesIndependentes.length > 0) {
+
+            whereClause =
+                "WHERE (" +
+                blocosHierarquicos.join(" OR ") +
+                ") AND " +
+                partesIndependentes.join(" AND ");
+
+        } else if (blocosHierarquicos.length > 0) {
+
+            whereClause =
+                "WHERE " + blocosHierarquicos.join(" OR ");
+
+        } else if (partesIndependentes.length > 0) {
+
+            whereClause =
+                "WHERE " + partesIndependentes.join(" AND ");
         }
 
         // -------------------------------
@@ -148,9 +212,9 @@ class QueryService {
         const sql = `
             SELECT ${selectParts.join(", ")}
             FROM ${this._quoteIdent(this.table)}
-            ${whereParts.length ? "WHERE " + whereParts.join(" AND ") : ""}
+            ${whereClause}
             GROUP BY ${groupByParts.join(", ")}
-            LIMIT 20
+            LIMIT 100
         `.trim();
 
         return { sql, params };

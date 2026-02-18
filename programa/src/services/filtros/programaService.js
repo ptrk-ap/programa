@@ -1,5 +1,13 @@
 const fs = require("fs");
 const caminhoCsv = "../src/data/entidades/programa.csv";
+const { resolverPercentualMinimo } = require("../../utils/sensibilidadeMatcher");
+
+const PERCENTUAL_PADRAO = 0.7;
+
+// 🔥 Regra apenas para a palavra "programa"
+const REGRAS_SENSIBILIDADE = [
+    { palavra: "programa", percentual: 0.5 }
+];
 
 /**
  * Normaliza texto para comparação
@@ -15,26 +23,20 @@ function normalize(text) {
 class ProgramaService {
 
     constructor() {
-
-        // Carrega CSV uma única vez
         this.programas = this.carregarCsv(caminhoCsv);
 
-        // Índice por código (O(1))
         this.mapaPorCodigo = new Map(
             this.programas.map(p => [p.codigo, p])
         );
     }
 
-    /**
-     * Lê CSV e transforma em objetos
-     */
     carregarCsv(caminho) {
         const conteudo = fs.readFileSync(caminho, "utf8");
 
         return conteudo
             .split(/\r?\n/)
             .filter(Boolean)
-            .slice(1) // remove cabeçalho
+            .slice(1)
             .map(linha => {
                 const [codigo, descricao] = linha.split(",");
 
@@ -43,22 +45,17 @@ class ProgramaService {
                     descricao: (descricao || "").trim()
                 };
             })
-            // 🔥 FILTRO CRÍTICO
             .filter(item =>
                 /^\d{4}$/.test(item.codigo) &&
                 item.descricao
             );
     }
 
-    /**
-     * Extrai programas de uma frase
-     */
     extrair(frase) {
         const resultados = [];
         const encontrados = new Set();
 
         const textoNormalizado = normalize(frase);
-
         const temAcao = /\bacao\b/.test(textoNormalizado);
 
         // -------------------------------
@@ -66,13 +63,11 @@ class ProgramaService {
         // -------------------------------
 
         const codigos = frase.match(/\b\d{4}\b/g) || [];
-
         let existeCodigoInvalido = false;
 
         for (const codigo of codigos) {
             const numero = Number(codigo);
 
-            // Código elegível de programa
             const elegivel =
                 codigo.startsWith("0") ||
                 numero < 1000 ||
@@ -83,7 +78,6 @@ class ProgramaService {
                 continue;
             }
 
-            // Se o contexto fala explicitamente de ação, ignora programa
             if (temAcao) continue;
 
             const programa = this.mapaPorCodigo.get(codigo);
@@ -91,8 +85,7 @@ class ProgramaService {
             if (programa && !encontrados.has(codigo)) {
                 resultados.push({
                     codigo: programa.codigo,
-                    descricao: programa.descricao,
-                    //origem: "codigo"
+                    descricao: programa.descricao
                 });
                 encontrados.add(codigo);
             }
@@ -102,10 +95,16 @@ class ProgramaService {
         // 2️⃣ BUSCA POR DESCRIÇÃO
         // -------------------------------
 
-        // Se houver ação explícita ou código inválido, não tenta descrição
         if (temAcao || existeCodigoInvalido) {
             return resultados;
         }
+
+        // 🔥 Aplicação da sensibilidade dinâmica
+        const percentualMinimo = resolverPercentualMinimo(
+            textoNormalizado,
+            PERCENTUAL_PADRAO,
+            REGRAS_SENSIBILIDADE
+        );
 
         for (const programa of this.programas) {
             if (encontrados.has(programa.codigo)) continue;
@@ -122,7 +121,7 @@ class ProgramaService {
 
             const percentual = matches.length / palavras.length;
 
-            if (percentual >= 0.7) {
+            if (percentual >= percentualMinimo) {
                 resultados.push({
                     codigo: programa.codigo,
                     descricao: programa.descricao
@@ -133,7 +132,6 @@ class ProgramaService {
 
         return resultados;
     }
-
 }
 
 module.exports = ProgramaService;

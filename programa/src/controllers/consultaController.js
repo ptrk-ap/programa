@@ -5,8 +5,9 @@ const Splitservice = require("../services/entidades/splitService");
 const filtroService = require("../services/filtros/filtroService");
 const QueryService = require("../services/query/queryService");
 const queryService = new QueryService();
-//const pool = require("../database/connection");
+const pool = require("../database/connection");
 const FormatterService = require("../services/entidades/formatterService");
+
 
 
 async function consulta(req, res, next) {
@@ -20,22 +21,23 @@ async function consulta(req, res, next) {
 
 
     try {
+
         //traduzir especificos para termos do banco: unidade gestora -> unidade_gestora
         const fraseProcessada = OrcamentoService.traduzirParaTermosSql(consultaFrase);
+
 
         //identifica e lista os campos do relatorio presente na frase
         const parametrosEncontrados = ExtratorTermosService.identificarParametros(fraseProcessada);
 
-
-        //quebra a frase em pedaços
+        //quebra a frase em pedaços usando os termos do banco como marcador
         const divisor = Splitservice.quebrarFrase(fraseProcessada);
-        console.log(parametrosEncontrados);
-
         //procura filtros nos pedaços
         const filtros = filtroService.processarFiltros(divisor);
+        console.log(filtros);
 
-        /*
-         const { sql, params } = queryService.buildQuery(parametrosEncontrados, filtros);
+
+        //monta a query
+        const { sql, params } = queryService.buildQuery(parametrosEncontrados, filtros);
         console.log(sql, params);
 
         //executar conulta sql
@@ -43,15 +45,24 @@ async function consulta(req, res, next) {
 
         //formatar resultado para reais
         const resultadoFormatado = FormatterService.formatarResultado(rows);
-           
+
         return res.json(resultadoFormatado);
+
+        /*
+        
+   
+
+        
+
+      
+
         */
 
-        //gerar sql
 
-        return res.json(filtros);
+
     } catch (err) {
-        next(err);
+        //next(err);
+        return res.json("consulta nao executada por inconsistencia nos dados");
     }
 }
 

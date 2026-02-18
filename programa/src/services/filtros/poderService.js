@@ -12,6 +12,7 @@ const REGRAS_SENSIBILIDADE = [
  * Normaliza texto para comparação:
  * - lowercase
  * - remove acentos
+ * - trim
  */
 function normalize(text) {
     return text
@@ -29,15 +30,6 @@ function normalizarCodigo(codigo) {
     return String(parseInt(codigo, 10));
 }
 
-/**
- * Service responsável por:
- * - carregar o CSV de poderes
- * - manter os dados em memória
- * - extrair poderes a partir de uma frase
- *
- * REGRA ESPECIAL:
- * - só permite busca por CÓDIGO se a frase contiver "poder"
- */
 class PoderService {
 
     constructor() {
@@ -81,6 +73,10 @@ class PoderService {
 
     /**
      * Extrai poderes de uma frase
+     *
+     * 🔒 REGRA:
+     * Só executa busca se a palavra "poder"
+     * estiver explicitamente presente na frase.
      */
     extrair(frase) {
 
@@ -89,37 +85,37 @@ class PoderService {
 
         const textoNormalizado = normalize(frase);
 
+        // 🔐 Se não mencionar explicitamente "poder", não busca nada
+        if (!/\bpoder\b/.test(textoNormalizado)) {
+            return [];
+        }
+
         const percentualMinimo = resolverPercentualMinimo(
             textoNormalizado,
             PERCENTUAL_PADRAO,
             REGRAS_SENSIBILIDADE
         );
 
-        // 🔐 Só permite código se mencionar "poder"
-        const permiteBuscaPorCodigo = textoNormalizado.includes("poder");
-
         // -------------------------------
-        // 1️⃣ BUSCA POR CÓDIGO (CONDICIONAL)
+        // 1️⃣ BUSCA POR CÓDIGO
         // -------------------------------
-        if (permiteBuscaPorCodigo) {
 
-            const codigos = frase.match(/\b\d{1,2}\b/g) || [];
+        const codigos = frase.match(/\b\d{1,2}\b/g) || [];
 
-            for (const codigoBruto of codigos) {
+        for (const codigoBruto of codigos) {
 
-                const codigoNormalizado = normalizarCodigo(codigoBruto);
+            const codigoNormalizado = normalizarCodigo(codigoBruto);
 
-                const poder = this.mapaPorCodigo.get(codigoNormalizado);
+            const poder = this.mapaPorCodigo.get(codigoNormalizado);
 
-                if (poder && !encontrados.has(codigoNormalizado)) {
+            if (poder && !encontrados.has(codigoNormalizado)) {
 
-                    resultados.push({
-                        codigo: poder.codigo,
-                        descricao: poder.descricao
-                    });
+                resultados.push({
+                    codigo: poder.codigo,
+                    descricao: poder.descricao
+                });
 
-                    encontrados.add(codigoNormalizado);
-                }
+                encontrados.add(codigoNormalizado);
             }
         }
 
@@ -129,7 +125,9 @@ class PoderService {
 
         for (const poder of this.poderes) {
 
-            if (encontrados.has(normalizarCodigo(poder.codigo))) continue;
+            const codigoNormalizado = normalizarCodigo(poder.codigo);
+
+            if (encontrados.has(codigoNormalizado)) continue;
 
             const palavras = normalize(poder.descricao)
                 .split(" ")
@@ -150,7 +148,7 @@ class PoderService {
                     descricao: poder.descricao
                 });
 
-                encontrados.add(normalizarCodigo(poder.codigo));
+                encontrados.add(codigoNormalizado);
             }
         }
 

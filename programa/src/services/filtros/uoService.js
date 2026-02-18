@@ -2,9 +2,18 @@ const fs = require("fs");
 const caminhoCsv = "../src/data/entidades/unidade_orcamentaria.csv";
 
 /**
+ * Palavras ignoradas na busca
+ */
+const STOPWORDS = new Set([
+    "estado",
+    "estadual"
+]);
+
+/**
  * Normaliza texto para comparação:
  * - lowercase
  * - remove acentos
+ * - remove pontuação
  * - trim
  */
 function normalize(text) {
@@ -12,7 +21,18 @@ function normalize(text) {
         .toLowerCase()
         .normalize("NFD")
         .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^\w\s]/g, "")
         .trim();
+}
+
+/**
+ * Remove stopwords do texto já normalizado
+ */
+function removeStopwords(text) {
+    return text
+        .split(/\s+/)
+        .filter(p => !STOPWORDS.has(p))
+        .join(" ");
 }
 
 class UnidadeOrcamentariaService {
@@ -32,7 +52,7 @@ class UnidadeOrcamentariaService {
      * Lê CSV e transforma em objetos
      */
     carregarCsv(caminho) {
-        const conteudo = fs.readFileSync(caminho, "latin1");
+        const conteudo = fs.readFileSync(caminho, "utf8");
 
         return conteudo
             .split(/\r?\n/)
@@ -46,7 +66,6 @@ class UnidadeOrcamentariaService {
                     descricao: (descricao || "").trim()
                 };
             })
-            // 🔥 FILTRO CRÍTICO
             .filter(item =>
                 item.codigo &&
                 item.descricao &&
@@ -63,7 +82,8 @@ class UnidadeOrcamentariaService {
         const resultados = [];
         const encontrados = new Set();
 
-        const textoNormalizado = normalize(frase);
+        // 🔥 Remove stopwords também da frase digitada
+        const textoNormalizado = removeStopwords(normalize(frase));
 
         // -------------------------------
         // 1️⃣ BUSCA POR CÓDIGO
@@ -78,7 +98,6 @@ class UnidadeOrcamentariaService {
                 resultados.push({
                     codigo: unidade.codigo,
                     descricao: unidade.descricao,
-                    //origem: "codigo"
                 });
                 encontrados.add(codigo);
             }
@@ -91,12 +110,9 @@ class UnidadeOrcamentariaService {
         for (const unidade of this.unidades) {
             if (encontrados.has(unidade.codigo)) continue;
 
-            const palavras = normalize(unidade.descricao)
-                .split(" ")
-                .filter(p =>
-                    p.length > 3 &&
-                    p !== "estado" // 🔥 ignora somente essa palavra
-                );
+            const palavras = removeStopwords(normalize(unidade.descricao))
+                .split(/\s+/)
+                .filter(p => p.length > 3);
 
             if (!palavras.length) continue;
 
@@ -104,7 +120,6 @@ class UnidadeOrcamentariaService {
                 textoNormalizado.includes(p)
             );
 
-            // Critério: 60% das palavras relevantes
             const percentual = matches.length / palavras.length;
 
             if (percentual >= 0.6) {

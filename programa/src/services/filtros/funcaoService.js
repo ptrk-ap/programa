@@ -1,7 +1,9 @@
 const fs = require("fs");
 const caminhoCsv = "../src/data/entidades/funcao.csv";
 const { resolverPercentualMinimo } = require("../../utils/sensibilidadeMatcher");
+
 const PERCENTUAL_PADRAO = 0.7;
+
 const REGRAS_SENSIBILIDADE = [
     { palavra: "funcao", percentual: 0.5 }
 ];
@@ -19,15 +21,6 @@ function normalize(text) {
         .trim();
 }
 
-/**
- * Service responsável por:
- * - carregar o CSV de funções
- * - manter os dados em memória
- * - extrair funções a partir de uma frase
- *
- * REGRA ESPECIAL:
- * - só permite busca por CÓDIGO se a frase contiver a palavra "funcao"
- */
 class FuncaoService {
 
     constructor() {
@@ -48,7 +41,7 @@ class FuncaoService {
         return conteudo
             .split(/\r?\n/)
             .filter(Boolean)
-            .slice(1) // remove cabeçalho
+            .slice(1)
             .map(linha => {
                 const [codigo, descricao] = linha.split(",");
 
@@ -67,12 +60,19 @@ class FuncaoService {
 
     /**
      * Extrai funções de uma frase
+     * 🔒 Só executa se a palavra "funcao" estiver presente
      */
     extrair(frase) {
         const resultados = [];
         const encontrados = new Set();
 
         const textoNormalizado = normalize(frase);
+
+        // 🔐 REGRA GLOBAL: só permite qualquer busca se tiver "funcao"
+        if (!textoNormalizado.includes("funcao")) {
+            return [];
+        }
+
         const percentualMinimo = resolverPercentualMinimo(
             textoNormalizado,
             PERCENTUAL_PADRAO,
@@ -80,27 +80,20 @@ class FuncaoService {
         );
 
         // -------------------------------
-        // 🔐 REGRA: permite código?
+        // 1️⃣ BUSCA POR CÓDIGO
         // -------------------------------
-        const permiteBuscaPorCodigo = textoNormalizado.includes("funcao");
 
-        // -------------------------------
-        // 1️⃣ BUSCA POR CÓDIGO (CONDICIONAL)
-        // -------------------------------
-        if (permiteBuscaPorCodigo) {
-            // aceita 1 ou 2 dígitos isolados
-            const codigos = frase.match(/\b\d{1,2}\b/g) || [];
+        const codigos = frase.match(/\b\d{1,2}\b/g) || [];
 
-            for (const codigo of codigos) {
-                const funcao = this.mapaPorCodigo.get(codigo);
+        for (const codigo of codigos) {
+            const funcao = this.mapaPorCodigo.get(codigo);
 
-                if (funcao && !encontrados.has(codigo)) {
-                    resultados.push({
-                        codigo: funcao.codigo,
-                        descricao: funcao.descricao
-                    });
-                    encontrados.add(codigo);
-                }
+            if (funcao && !encontrados.has(codigo)) {
+                resultados.push({
+                    codigo: funcao.codigo,
+                    descricao: funcao.descricao
+                });
+                encontrados.add(codigo);
             }
         }
 

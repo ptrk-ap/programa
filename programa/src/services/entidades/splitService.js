@@ -8,8 +8,8 @@ class SplitService {
             "poder",
             "unidade_gestora",
             "fonte",
-            "natureza",
-            "elemento",
+            "natureza_despesa",
+            "elemento_despesa",
             "categoria_despesa",
             "grupo_despesa",
             "funcao",
@@ -24,6 +24,7 @@ class SplitService {
             "convenio_despesa",
             "dotacao_inicial",
             "despesas_empenhadas",
+            "despesas_liquidadas",
             "despesas_pagas",
             "despesas_exercicio_pagas"
         ];

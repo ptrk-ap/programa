@@ -2,9 +2,18 @@ const fs = require("fs");
 const caminhoCsv = "../src/data/entidades/unidade_gestora.csv";
 
 /**
+ * Palavras ignoradas na busca
+ */
+const STOPWORDS = new Set([
+    "estado",
+    "estadual"
+]);
+
+/**
  * Normaliza texto para comparação:
  * - lowercase
  * - remove acentos
+ * - remove pontuação
  * - trim
  */
 function normalize(text) {
@@ -12,10 +21,19 @@ function normalize(text) {
         .toLowerCase()
         .normalize("NFD")
         .replace(/[\u0300-\u036f]/g, "")
-        .replace(/[^\w\s]/g, "") // remove pontuação
+        .replace(/[^\w\s]/g, "")
         .trim();
 }
 
+/**
+ * Remove stopwords do texto já normalizado
+ */
+function removeStopwords(text) {
+    return text
+        .split(/\s+/)
+        .filter(p => !STOPWORDS.has(p))
+        .join(" ");
+}
 
 class UnidadeGestoraService {
 
@@ -54,7 +72,6 @@ class UnidadeGestoraService {
                     descricao: (descricao || "").trim()
                 };
             })
-            // 🔥 FILTRO CRÍTICO
             .filter(item =>
                 item.codigo &&
                 item.mnemonico &&
@@ -73,7 +90,8 @@ class UnidadeGestoraService {
         const resultados = [];
         const encontrados = new Set();
 
-        const textoNormalizado = normalize(frase);
+        // 🔥 Remove stopwords também da frase digitada
+        const textoNormalizado = removeStopwords(normalize(frase));
 
         // -------------------------------
         // 1️⃣ BUSCA POR CÓDIGO
@@ -87,9 +105,7 @@ class UnidadeGestoraService {
             if (unidade && !encontrados.has(codigo)) {
                 resultados.push({
                     codigo: unidade.codigo,
-                    // mnemonico: unidade.mnemonico,
                     descricao: unidade.descricao,
-                    //origem: "codigo"
                 });
                 encontrados.add(codigo);
             }
@@ -107,9 +123,7 @@ class UnidadeGestoraService {
             if (unidade && !encontrados.has(unidade.codigo)) {
                 resultados.push({
                     codigo: unidade.codigo,
-                    // mnemonico: unidade.mnemonico,
                     descricao: unidade.descricao,
-                    //origem: "mnemonico"
                 });
                 encontrados.add(unidade.codigo);
             }
@@ -122,26 +136,22 @@ class UnidadeGestoraService {
         for (const unidade of this.unidades) {
             if (encontrados.has(unidade.codigo)) continue;
 
-            const palavras = normalize(unidade.descricao)
-                .split(" ")
-                .filter(p =>
-                    p.length > 3 &&
-                    p !== "estado" // 🔥 ignora somente essa palavra
-                );
+            const palavras = removeStopwords(normalize(unidade.descricao))
+                .split(/\s+/)
+                .filter(p => p.length > 3);
 
+            if (palavras.length === 0) continue;
 
             const matches = palavras.filter(p =>
                 textoNormalizado.includes(p)
             );
 
-            // Critério: 50% das palavras
             const percentual = matches.length / palavras.length;
 
             if (percentual >= 0.6) {
                 resultados.push({
                     codigo: unidade.codigo,
                     descricao: unidade.descricao,
-                    //origem: "descricao"
                 });
                 encontrados.add(unidade.codigo);
             }

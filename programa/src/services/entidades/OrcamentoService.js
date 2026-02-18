@@ -31,7 +31,7 @@ class OrcamentoService {
                 "origens de recurso"
             ],
 
-            "natureza": [
+            "natureza_despesa": [
                 "natureza",
                 "naturezas",
                 "natureza da despesa",
@@ -47,7 +47,7 @@ class OrcamentoService {
                 "programas de governo"
             ],
 
-            "elemento": [
+            "elemento_despesa": [
                 "elemento de despesa",
                 "elementos de despesa",
                 "elemento",
@@ -178,7 +178,17 @@ class OrcamentoService {
                 "pago",
                 "pagos",
                 "paga",
-                "pagas"
+                "pagas",
+                "despesa",
+                "despesas"
+            ],
+            "despesas_liquidadas": [
+                "despesa liquidada",
+                "despesas liquidadas",
+                "liquidado",
+                "liquidados",
+                "liquida",
+                "liquidadas"
             ]
         };
 

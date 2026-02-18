@@ -1,9 +1,9 @@
 const fs = require("fs");
-const caminhoCsv = "../src/data/entidades/natureza.csv";
+const caminhoCsv = "../src/data/entidades/natureza_despesa.csv";
 const { resolverPercentualMinimo } = require("../../utils/sensibilidadeMatcher");
 const PERCENTUAL_PADRAO = 0.7;
 const REGRAS_SENSIBILIDADE = [
-    { palavra: "natureza", percentual: 0.5 }
+    { palavra: "natureza_despesa", percentual: 0.5 }
 ];
 /**
  * Normaliza texto para comparação:
@@ -23,7 +23,7 @@ function normalize(text) {
  * Service responsável por:
  * - carregar o CSV de naturezas
  * - manter os dados em memória
- * - extrair naturezas a partir de uma frase
+ * - extrair naturezas de despesa a partir de uma frase
  */
 class NaturezaService {
 
