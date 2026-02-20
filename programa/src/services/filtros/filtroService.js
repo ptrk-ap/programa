@@ -16,6 +16,7 @@ const EmendaService = require("./emendaService");
 const ContratoService = require("./contratoService");
 const ConvenioDespesaService = require("./conveniodespesaService");
 const ConvenioReceitaService = require("./convenioreceitaService");
+const CredorService = require("./credorService"); // Novo serviço assíncrono
 
 class FiltroService {
     constructor() {
@@ -37,86 +38,73 @@ class FiltroService {
             emenda: new EmendaService(),
             contrato: new ContratoService(),
             convenio_despesa: new ConvenioDespesaService(),
-            convenio_receita: new ConvenioReceitaService()
+            convenio_receita: new ConvenioReceitaService(),
+            credor: new CredorService() // Adicionado à lista de serviços
         };
     }
 
     /**
-     * Analisa o array vindo do SplitService e retorna um objeto com os filtros encontrados.
-     * @param {string[]} partesFrase - Array gerado pelo SplitService.
-     * @returns {Object} - Objeto contendo os resultados de cada entidade.
+     * Analisa as partes da frase e retorna um objeto com os filtros encontrados.
+     * Utiliza Promise.all para processar todos os serviços e trechos em paralelo.
+     * * @param {string[]} partesFrase - Array gerado pelo SplitService.
+     * @returns {Promise<Object>} - Objeto contendo os resultados filtrados.
      */
-    processarFiltros(partesFrase) {
-        const filtrosEncontrados = {
-            natureza_despesa: [],
-            fonte: [],
-            unidade_gestora: [],
-            unidade_orcamentaria: [],
-            programa: [],
-            acao: [],
-            elemento_despesa: [],
-            grupo_despesa: [],
-            categoria_despesa: [],
-            funcao: [],
-            ods: [],
-            eixo: [],
-            poder: [],
-            emenda: [],
-            contrato: [],
-            convenio_despesa: [],
-            convenio_receita: []
-        };
-
-        // Percorre cada pedaço da frase que foi quebrado pelo SplitService
-        partesFrase.forEach(trecho => {
-
-            // Tenta extrair dados de cada serviço para o trecho atual
-            const resNat = this.services.natureza_despesa.extrair(trecho);
-            const resFon = this.services.fonte.extrair(trecho);
-            const resUg = this.services.unidade_gestora.extrair(trecho);
-            const resUo = this.services.unidade_orcamentaria.extrair(trecho);
-            const resProg = this.services.programa.extrair(trecho);
-            const resAcao = this.services.acao.extrair(trecho);
-            const resElem = this.services.elemento_despesa.extrair(trecho);
-            const resGrupoDespesa = this.services.grupo_despesa.extrair(trecho);
-            const resCategoriaDespesa = this.services.categoria_despesa.extrair(trecho);
-            const resFuncao = this.services.funcao.extrair(trecho);
-            const resOds = this.services.ods.extrair(trecho);
-            const resEixo = this.services.eixo.extrair(trecho);
-            const resPoder = this.services.poder.extrair(trecho);
-            const resEmenda = this.services.emenda.extrair(trecho);
-            const resContrato = this.services.contrato.extrair(trecho);
-            const resConvenioDespesa = this.services.convenio_despesa.extrair(trecho);
-            const resConvenioReceita = this.services.convenio_receita.extrair(trecho);
-
-            // Se o service retornar dados (assumindo que retorna array vazio se não achar nada)
-            if (resNat?.length) filtrosEncontrados.natureza_despesa.push(...resNat);
-            if (resFon?.length) filtrosEncontrados.fonte.push(...resFon);
-            if (resUg?.length) filtrosEncontrados.unidade_gestora.push(...resUg);
-            if (resUo?.length) filtrosEncontrados.unidade_orcamentaria.push(...resUo);
-            if (resProg?.length) filtrosEncontrados.programa.push(...resProg);
-            if (resAcao?.length) filtrosEncontrados.acao.push(...resAcao);
-            if (resElem?.length) filtrosEncontrados.elemento_despesa.push(...resElem);
-            if (resGrupoDespesa?.length) filtrosEncontrados.grupo_despesa.push(...resGrupoDespesa);
-            if (resCategoriaDespesa?.length) filtrosEncontrados.categoria_despesa.push(...resCategoriaDespesa);
-            if (resFuncao?.length) filtrosEncontrados.funcao.push(...resFuncao);
-            if (resOds?.length) filtrosEncontrados.ods.push(...resOds);
-            if (resEixo?.length) filtrosEncontrados.eixo.push(...resEixo);
-            if (resPoder?.length) filtrosEncontrados.poder.push(...resPoder);
-            if (resEmenda?.length) filtrosEncontrados.emenda.push(...resEmenda);
-            if (resContrato?.length) filtrosEncontrados.contrato.push(...resContrato);
-            if (resConvenioDespesa?.length) filtrosEncontrados.convenio_despesa.push(...resConvenioDespesa);
-            if (resConvenioReceita?.length) filtrosEncontrados.convenio_receita.push(...resConvenioReceita);
+    async processarFiltros(partesFrase) {
+        // Inicializa o objeto de resultados baseado nas chaves dos serviços
+        const filtrosEncontrados = {};
+        Object.keys(this.services).forEach(chave => {
+            filtrosEncontrados[chave] = [];
         });
 
-        // Remove propriedades com arrays vazios
-        const apenasNaoVazios = Object.fromEntries(
-            Object.entries(filtrosEncontrados)
-                .filter(([_, valor]) => Array.isArray(valor) && valor.length > 0)
-        );
+        // Para cada pedaço da frase, processamos os serviços em sequência (Cascata)
+        for (let trecho of partesFrase) {
 
-        return apenasNaoVazios;
+            // Percorre cada serviço para tentar extrair filtros do trecho atual
+            for (const [entidade, service] of Object.entries(this.services)) {
+                try {
+                    // Se o trecho ficou vazio (tudo foi removido por serviços anteriores), pula
+                    if (!trecho || trecho.trim().length === 0) break;
 
+                    const resultados = await service.extrair(trecho);
+
+                    if (resultados && resultados.length > 0) {
+                        // Adiciona os resultados encontrados
+                        filtrosEncontrados[entidade].push(...resultados);
+
+                        // Lógica de Cascata: Remove do trecho o que foi reconhecido
+                        resultados.forEach(res => {
+                            if (res.trecho_encontrado) {
+                                // Cria regex global e case-insensitive para remover o fragmento
+                                // Escapa o trecho para evitar problemas com regex
+                                const trechoEscapado = res.trecho_encontrado.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+                                const regex = new RegExp(trechoEscapado, "gi");
+                                trecho = trecho.replace(regex, " ").trim();
+                            }
+                        });
+                    }
+                } catch (error) {
+                    console.error(`Erro ao extrair [${entidade}] no trecho "${trecho}":`, error);
+                }
+            }
+        }
+
+        // Remove duplicatas de objetos (caso o mesmo item seja encontrado em trechos diferentes) 
+        // e remove chaves que ficaram com arrays vazios
+        const resultadoFinal = {};
+
+        for (const [entidade, lista] of Object.entries(filtrosEncontrados)) {
+            if (lista.length > 0) {
+                // Filtra duplicatas baseadas no código (único para cada entidade)
+                const idsUnicos = new Set();
+                resultadoFinal[entidade] = lista.filter(item => {
+                    if (idsUnicos.has(item.codigo)) return false;
+                    idsUnicos.add(item.codigo);
+                    return true;
+                });
+            }
+        }
+
+        return resultadoFinal;
     }
 }
 

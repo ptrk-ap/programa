@@ -95,7 +95,8 @@ class ElementoService {
                 if (elemento && !encontrados.has(codigo)) {
                     resultados.push({
                         codigo: elemento.codigo,
-                        descricao: elemento.descricao
+                        descricao: elemento.descricao,
+                        trecho_encontrado: codigo
                     });
                     encontrados.add(codigo);
                 }
@@ -125,7 +126,8 @@ class ElementoService {
             if (percentual >= 0.7) {
                 resultados.push({
                     codigo: elemento.codigo,
-                    descricao: elemento.descricao
+                    descricao: elemento.descricao,
+                    trecho_encontrado: frase
                 });
                 encontrados.add(elemento.codigo);
             }

@@ -91,10 +91,10 @@ class EmendaService {
                 );
 
                 if (codigoEncontrado) {
-
                     resultados.push({
                         codigo: emenda.codigo,
-                        descricao: emenda.descricao
+                        descricao: emenda.descricao,
+                        trecho_encontrado: emenda.codigo // ou o token exato
                     });
 
                     encontrados.add(emenda.codigo);
@@ -123,7 +123,8 @@ class EmendaService {
 
                 resultados.push({
                     codigo: emenda.codigo,
-                    descricao: emenda.descricao
+                    descricao: emenda.descricao,
+                    trecho_encontrado: frase
                 });
 
                 encontrados.add(emenda.codigo);

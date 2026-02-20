@@ -94,7 +94,8 @@ class GrupoDespesaService {
                 if (grupo && !encontrados.has(codigo)) {
                     resultados.push({
                         codigo: grupo.codigo,
-                        descricao: grupo.descricao
+                        descricao: grupo.descricao,
+                        trecho_encontrado: codigo
                     });
                     encontrados.add(codigo);
                 }
@@ -124,7 +125,8 @@ class GrupoDespesaService {
             if (percentual >= 0.6) {
                 resultados.push({
                     codigo: grupo.codigo,
-                    descricao: grupo.descricao
+                    descricao: grupo.descricao,
+                    trecho_encontrado: frase
                 });
                 encontrados.add(grupo.codigo);
             }

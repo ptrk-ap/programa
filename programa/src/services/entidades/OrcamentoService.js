@@ -142,6 +142,13 @@ class OrcamentoService {
                 "convenios"
             ],
 
+            "credor": [
+                "credor",
+                "credores",
+                "fornecedor",
+                "fornecedores"
+            ],
+
 
             "dotacao_inicial": [
                 "dotação inicial",

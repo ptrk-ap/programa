@@ -106,6 +106,7 @@ class UnidadeGestoraService {
                 resultados.push({
                     codigo: unidade.codigo,
                     descricao: unidade.descricao,
+                    trecho_encontrado: codigo
                 });
                 encontrados.add(codigo);
             }
@@ -124,6 +125,7 @@ class UnidadeGestoraService {
                 resultados.push({
                     codigo: unidade.codigo,
                     descricao: unidade.descricao,
+                    trecho_encontrado: token
                 });
                 encontrados.add(unidade.codigo);
             }
@@ -152,6 +154,7 @@ class UnidadeGestoraService {
                 resultados.push({
                     codigo: unidade.codigo,
                     descricao: unidade.descricao,
+                    trecho_encontrado: frase
                 });
                 encontrados.add(unidade.codigo);
             }

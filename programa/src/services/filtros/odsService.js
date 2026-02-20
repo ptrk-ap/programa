@@ -100,7 +100,8 @@ class OdsService {
                 if (ods && !encontrados.has(codigo)) {
                     resultados.push({
                         codigo: ods.codigo,
-                        descricao: ods.descricao
+                        descricao: ods.descricao,
+                        trecho_encontrado: codigo
                     });
                     encontrados.add(codigo);
                 }
@@ -129,7 +130,8 @@ class OdsService {
             if (percentual >= percentualMinimo) {
                 resultados.push({
                     codigo: ods.codigo,
-                    descricao: ods.descricao
+                    descricao: ods.descricao,
+                    trecho_encontrado: frase
                 });
                 encontrados.add(ods.codigo);
             }

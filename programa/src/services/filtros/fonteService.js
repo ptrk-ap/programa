@@ -74,7 +74,7 @@ class FonteService {
                 resultados.push({
                     codigo: fonte.codigo,
                     descricao: fonte.descricao,
-                    //origem: "codigo"
+                    trecho_encontrado: codigo
                 });
                 encontrados.add(codigo);
             }
@@ -101,7 +101,8 @@ class FonteService {
             if (percentual >= 0.7) {
                 resultados.push({
                     codigo: fonte.codigo,
-                    descricao: fonte.descricao
+                    descricao: fonte.descricao,
+                    trecho_encontrado: frase
                 });
                 encontrados.add(fonte.codigo);
             }

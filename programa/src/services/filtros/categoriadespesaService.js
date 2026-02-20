@@ -90,7 +90,8 @@ class CategoriaDespesaService {
                 if (categoria && !encontrados.has(codigo)) {
                     resultados.push({
                         codigo: categoria.codigo,
-                        descricao: categoria.descricao
+                        descricao: categoria.descricao,
+                        trecho_encontrado: codigo
                     });
                     encontrados.add(codigo);
                 }
@@ -119,7 +120,8 @@ class CategoriaDespesaService {
             if (percentual >= 0.7) {
                 resultados.push({
                     codigo: categoria.codigo,
-                    descricao: categoria.descricao
+                    descricao: categoria.descricao,
+                    trecho_encontrado: frase
                 });
                 encontrados.add(categoria.codigo);
             }

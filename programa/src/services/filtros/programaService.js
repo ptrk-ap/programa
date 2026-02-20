@@ -85,7 +85,8 @@ class ProgramaService {
             if (programa && !encontrados.has(codigo)) {
                 resultados.push({
                     codigo: programa.codigo,
-                    descricao: programa.descricao
+                    descricao: programa.descricao,
+                    trecho_encontrado: codigo
                 });
                 encontrados.add(codigo);
             }
@@ -124,7 +125,8 @@ class ProgramaService {
             if (percentual >= percentualMinimo) {
                 resultados.push({
                     codigo: programa.codigo,
-                    descricao: programa.descricao
+                    descricao: programa.descricao,
+                    trecho_encontrado: frase
                 });
                 encontrados.add(programa.codigo);
             }

@@ -31,14 +31,15 @@ async function consulta(req, res, next) {
 
         //quebra a frase em pedaços usando os termos do banco como marcador
         const divisor = Splitservice.quebrarFrase(fraseProcessada);
+
         //procura filtros nos pedaços
-        const filtros = filtroService.processarFiltros(divisor);
-        console.log(filtros);
+        const filtros = await filtroService.processarFiltros(divisor);
+        //console.log(filtros);
 
 
         //monta a query
         const { sql, params } = queryService.buildQuery(parametrosEncontrados, filtros);
-        console.log(sql, params);
+        //console.log(sql, params);
 
         //executar conulta sql
         const [rows] = await pool.execute(sql, params);
@@ -62,7 +63,7 @@ async function consulta(req, res, next) {
 
     } catch (err) {
         //next(err);
-        return res.json("consulta nao executada por inconsistencia nos dados");
+        return res.json("Desculpe, não entendi. você poderia reformular sua pergunta? lembre-se de usar sempre termos técnicos e formais em consultas contabeis ");
     }
 }
 

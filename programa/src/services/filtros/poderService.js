@@ -112,7 +112,8 @@ class PoderService {
 
                 resultados.push({
                     codigo: poder.codigo,
-                    descricao: poder.descricao
+                    descricao: poder.descricao,
+                    trecho_encontrado: codigoBruto
                 });
 
                 encontrados.add(codigoNormalizado);
@@ -145,7 +146,8 @@ class PoderService {
 
                 resultados.push({
                     codigo: poder.codigo,
-                    descricao: poder.descricao
+                    descricao: poder.descricao,
+                    trecho_encontrado: frase
                 });
 
                 encontrados.add(codigoNormalizado);

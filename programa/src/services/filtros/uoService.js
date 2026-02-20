@@ -98,6 +98,7 @@ class UnidadeOrcamentariaService {
                 resultados.push({
                     codigo: unidade.codigo,
                     descricao: unidade.descricao,
+                    trecho_encontrado: codigo
                 });
                 encontrados.add(codigo);
             }
@@ -125,7 +126,8 @@ class UnidadeOrcamentariaService {
             if (percentual >= 0.6) {
                 resultados.push({
                     codigo: unidade.codigo,
-                    descricao: unidade.descricao
+                    descricao: unidade.descricao,
+                    trecho_encontrado: frase
                 });
                 encontrados.add(unidade.codigo);
             }

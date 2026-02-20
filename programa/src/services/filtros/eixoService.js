@@ -12,6 +12,7 @@ const REGRAS_SENSIBILIDADE = [
  * Normaliza texto para comparação:
  * - lowercase
  * - remove acentos
+ * - trim
  */
 function normalize(text) {
     return text
@@ -22,29 +23,20 @@ function normalize(text) {
 }
 
 /**
- * Remove zeros à esquerda do código
- * Permite aceitar 01 ou 1, 02 ou 2, etc.
+ * Remove zeros à esquerda
+ * Permite aceitar 01 ou 1
  */
 function normalizarCodigo(codigo) {
     return String(parseInt(codigo, 10));
 }
 
-/**
- * Service responsável por:
- * - carregar o CSV de eixos
- * - manter os dados em memória
- * - extrair eixos a partir de uma frase
- *
- * REGRA ESPECIAL:
- * - só permite busca por CÓDIGO se a frase contiver "eixo"
- */
 class EixoService {
 
     constructor() {
 
         this.eixos = this.carregarCsv(caminhoCsv);
 
-        // Índice por código normalizado (remove zero à esquerda)
+        // Índice por código normalizado
         this.mapaPorCodigo = new Map(
             this.eixos.map(e => [
                 normalizarCodigo(e.codigo),
@@ -62,7 +54,7 @@ class EixoService {
         return conteudo
             .split(/\r?\n/)
             .filter(Boolean)
-            .slice(1) // remove cabeçalho
+            .slice(1)
             .map(linha => {
                 const [codigo, descricao] = linha.split(",");
 
@@ -81,6 +73,10 @@ class EixoService {
 
     /**
      * Extrai eixos de uma frase
+     *
+     * 🔒 REGRA:
+     * Só executa busca se a palavra "eixo"
+     * estiver explicitamente presente na frase.
      */
     extrair(frase) {
 
@@ -89,38 +85,38 @@ class EixoService {
 
         const textoNormalizado = normalize(frase);
 
+        // 🔐 Se não mencionar explicitamente "eixo", não busca nada
+        if (!/\beixo\b/.test(textoNormalizado)) {
+            return [];
+        }
+
         const percentualMinimo = resolverPercentualMinimo(
             textoNormalizado,
             PERCENTUAL_PADRAO,
             REGRAS_SENSIBILIDADE
         );
 
-        // 🔐 Permite busca por código somente se mencionar "eixo"
-        const permiteBuscaPorCodigo = textoNormalizado.includes("eixo");
-
         // -------------------------------
-        // 1️⃣ BUSCA POR CÓDIGO (CONDICIONAL)
+        // 1️⃣ BUSCA POR CÓDIGO
         // -------------------------------
-        if (permiteBuscaPorCodigo) {
 
-            // aceita 1 ou 2 dígitos isolados
-            const codigos = frase.match(/\b\d{1,2}\b/g) || [];
+        const codigos = frase.match(/\b\d{1,2}\b/g) || [];
 
-            for (const codigoBruto of codigos) {
+        for (const codigoBruto of codigos) {
 
-                const codigoNormalizado = normalizarCodigo(codigoBruto);
+            const codigoNormalizado = normalizarCodigo(codigoBruto);
 
-                const eixo = this.mapaPorCodigo.get(codigoNormalizado);
+            const eixo = this.mapaPorCodigo.get(codigoNormalizado);
 
-                if (eixo && !encontrados.has(codigoNormalizado)) {
+            if (eixo && !encontrados.has(codigoNormalizado)) {
 
-                    resultados.push({
-                        codigo: eixo.codigo, // mantém formato original
-                        descricao: eixo.descricao
-                    });
+                resultados.push({
+                    codigo: eixo.codigo,
+                    descricao: eixo.descricao,
+                    trecho_encontrado: codigoBruto
+                });
 
-                    encontrados.add(codigoNormalizado);
-                }
+                encontrados.add(codigoNormalizado);
             }
         }
 
@@ -130,7 +126,9 @@ class EixoService {
 
         for (const eixo of this.eixos) {
 
-            if (encontrados.has(normalizarCodigo(eixo.codigo))) continue;
+            const codigoNormalizado = normalizarCodigo(eixo.codigo);
+
+            if (encontrados.has(codigoNormalizado)) continue;
 
             const palavras = normalize(eixo.descricao)
                 .split(" ")
@@ -148,10 +146,11 @@ class EixoService {
 
                 resultados.push({
                     codigo: eixo.codigo,
-                    descricao: eixo.descricao
+                    descricao: eixo.descricao,
+                    trecho_encontrado: frase
                 });
 
-                encontrados.add(normalizarCodigo(eixo.codigo));
+                encontrados.add(codigoNormalizado);
             }
         }
 

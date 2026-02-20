@@ -91,7 +91,8 @@ class FuncaoService {
             if (funcao && !encontrados.has(codigo)) {
                 resultados.push({
                     codigo: funcao.codigo,
-                    descricao: funcao.descricao
+                    descricao: funcao.descricao,
+                    trecho_encontrado: codigo
                 });
                 encontrados.add(codigo);
             }
@@ -119,7 +120,8 @@ class FuncaoService {
             if (percentual >= percentualMinimo) {
                 resultados.push({
                     codigo: funcao.codigo,
-                    descricao: funcao.descricao
+                    descricao: funcao.descricao,
+                    trecho_encontrado: frase
                 });
                 encontrados.add(funcao.codigo);
             }

@@ -22,6 +22,7 @@ class SplitService {
             "contrato",
             "convenio_receita",
             "convenio_despesa",
+            "credor",
             "dotacao_inicial",
             "despesas_empenhadas",
             "despesas_liquidadas",

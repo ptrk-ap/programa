@@ -26,7 +26,8 @@ class ExtratorTermosService {
             "emenda",
             "contrato",
             "convenio_despesa",
-            "convenio_receita"
+            "convenio_receita",
+            "credor"
         ];
     }
 

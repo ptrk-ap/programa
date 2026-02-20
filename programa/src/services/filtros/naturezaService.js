@@ -89,7 +89,8 @@ class NaturezaService {
             if (natureza && !encontrados.has(codigo)) {
                 resultados.push({
                     codigo: natureza.codigo,
-                    descricao: natureza.descricao
+                    descricao: natureza.descricao,
+                    trecho_encontrado: codigo
                 });
                 encontrados.add(codigo);
             }
@@ -126,9 +127,14 @@ class NaturezaService {
             const percentual = matches.length / palavras.length;
 
             if (percentual >= percentualMinimo) {
+                // Para descrição, o "trecho encontrado" pode ser complexo. 
+                // Retornamos a frase original enviada para este service, 
+                // mas idealmente poderíamos tentar identificar o range das palavras.
+                // Como FiltroService vai remover esse trecho, usamos a frase inteira se der match substancial.
                 resultados.push({
                     codigo: natureza.codigo,
-                    descricao: natureza.descricao
+                    descricao: natureza.descricao,
+                    trecho_encontrado: frase // Se deu match na descrição, consideramos o trecho todo
                 });
                 encontrados.add(natureza.codigo);
             }

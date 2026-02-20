@@ -87,7 +87,8 @@ class AcaoService {
             if (acao && !encontrados.has(codigo)) {
                 resultados.push({
                     codigo: acao.codigo,
-                    descricao: acao.descricao
+                    descricao: acao.descricao,
+                    trecho_encontrado: codigo
                 });
                 encontrados.add(codigo);
             }
@@ -124,7 +125,8 @@ class AcaoService {
             if (percentual >= percentualMinimo) {
                 resultados.push({
                     codigo: acao.codigo,
-                    descricao: acao.descricao
+                    descricao: acao.descricao,
+                    trecho_encontrado: frase
                 });
                 encontrados.add(acao.codigo);
             }
