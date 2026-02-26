@@ -7,6 +7,8 @@ const QueryService = require("../services/query/queryService");
 const queryService = new QueryService();
 const pool = require("../database/connection");
 const FormatterService = require("../services/entidades/formatterService");
+const DateService = require("../services/filtros/dateService");
+
 
 
 
@@ -24,6 +26,7 @@ async function consulta(req, res, next) {
 
         //traduzir especificos para termos do banco: unidade gestora -> unidade_gestora
         const fraseProcessada = OrcamentoService.traduzirParaTermosSql(consultaFrase);
+
 
 
         //identifica e lista os campos do relatorio presente na frase

@@ -146,7 +146,9 @@ class OrcamentoService {
                 "credor",
                 "credores",
                 "fornecedor",
-                "fornecedores"
+                "fornecedores",
+                "credora",
+                "fornecedora"
             ],
 
 

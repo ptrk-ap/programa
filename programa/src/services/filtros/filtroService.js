@@ -17,14 +17,16 @@ const ContratoService = require("./contratoService");
 const ConvenioDespesaService = require("./conveniodespesaService");
 const ConvenioReceitaService = require("./convenioreceitaService");
 const CredorService = require("./credorService"); // Novo serviço assíncrono
+const PeriodoService = require("./dateService");
 
 class FiltroService {
     constructor() {
         // Instanciamos os serviços uma única vez no construtor
         this.services = {
+            periodo: new PeriodoService(),
+            unidade_gestora: new UgService(),
             natureza_despesa: new NaturezaService(),
             fonte: new FonteService(),
-            unidade_gestora: new UgService(),
             unidade_orcamentaria: new UoService(),
             programa: new ProgramaService(),
             acao: new AcaoService(),

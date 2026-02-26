@@ -1,0 +1,178 @@
+class PeriodoService {
+    constructor() {
+        this.meses = {
+            'janeiro': 0, 'jan': 0, 'fevereiro': 1, 'fev': 1, 'marco': 2, 'mar': 2,
+            'abril': 3, 'abr': 3, 'maio': 4, 'mai': 4, 'junho': 5, 'jun': 5, 'julho': 6, 'jul': 6,
+            'agosto': 7, 'ago': 7, 'setembro': 8, 'set': 8, 'outubro': 9, 'out': 9,
+            'novembro': 10, 'nov': 10, 'dezembro': 11, 'dez': 11
+        };
+
+        this.numerais = {
+            'primeiro': 1, '1o': 1, 'um': 1, 'segundo': 2, '2o': 2,
+            'terceiro': 3, '3o': 3, 'quarto': 4, '4o': 4, 'quinto': 5, 'sexto': 6,
+            'quinze': 15, 'vinte': 20, 'trinta': 30
+        };
+
+        this.periodosAgrupados = {
+            'bimestre': 2, 'trimestre': 3, 'quadrimestre': 4, 'semestre': 6
+        };
+    }
+
+    extrair(frase) {
+        if (!frase) return [];
+
+        const hoje = new Date(2026, 1, 25);
+        const anoAtual = hoje.getFullYear();
+
+        // 🔥 Regex melhorado
+        const regexGeral = /(?:\d{1,2}\s+de\s+)?(?:\d{1,2}[\/\.]\d{1,2}(?:[\/\.]\d{2,4})?|\d{4}|\b(?:janeiro|fevereiro|marco|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro|bimestre|trimestre|quadrimestre|semestre)\b)(?:\s+de\s+\d{4})?/gi;
+
+        let fragmentos = [];
+        let match;
+
+        while ((match = regexGeral.exec(frase)) !== null) {
+            const info = this._parseFragmento(match[0], anoAtual, hoje);
+            if (info) {
+                fragmentos.push({
+                    inicio: info.inicio,
+                    fim: info.fim,
+                    texto: match[0],
+                    index: match.index,
+                    length: match[0].length
+                });
+            }
+        }
+
+        if (fragmentos.length === 0) return [];
+
+        const resultados = [];
+        let atual = fragmentos[0];
+
+        for (let i = 1; i < fragmentos.length; i++) {
+            const proximo = fragmentos[i];
+            const entreTrechos = frase.substring(atual.index + atual.length, proximo.index).toLowerCase().trim();
+
+            // 🔥 Só junta se for intervalo explícito
+            if (/^(ate|até|a)$/i.test(entreTrechos)) {
+
+                if (proximo.fim < atual.inicio) {
+                    proximo.inicio.setFullYear(atual.inicio.getFullYear());
+                    proximo.fim.setFullYear(atual.inicio.getFullYear());
+                }
+
+                atual.fim = proximo.fim;
+                atual.texto = frase.substring(atual.index, proximo.index + proximo.length);
+                atual.length = atual.texto.length;
+            } else {
+
+
+                resultados.push(this._formatarSaida(atual));
+                atual = proximo;
+            }
+        }
+
+        resultados.push(this._formatarSaida(atual));
+        console.log(resultados)
+
+
+
+        return resultados;
+    }
+
+    _parseFragmento(texto, anoReferencia, hoje) {
+        const str = texto.toLowerCase().trim();
+
+        let dia = 1;
+        let mes = -1;
+        let ano = anoReferencia;
+        let ehAgrupado = false;
+        let mesesDuracao = 1;
+
+        // 🔥 ANO ISOLADO (novo)
+        const matchAnoIsolado = str.match(/^\d{4}$/);
+        if (matchAnoIsolado) {
+            ano = parseInt(matchAnoIsolado[0]);
+            return {
+                inicio: new Date(ano, 0, 1),
+                fim: new Date(ano, 11, 31)
+            };
+        }
+
+        // 🔥 Períodos agrupados
+        for (const [nome, meses] of Object.entries(this.periodosAgrupados)) {
+            if (str.includes(nome)) {
+                let ordinal = 1;
+                for (const [nNome, nVal] of Object.entries(this.numerais)) {
+                    if (str.includes(nNome)) { ordinal = nVal; break; }
+                }
+
+                const mOrdinal = str.match(/(\d+)o/);
+                if (mOrdinal) ordinal = parseInt(mOrdinal[1]);
+
+                mes = (ordinal - 1) * meses;
+                mesesDuracao = meses;
+                ehAgrupado = true;
+                break;
+            }
+        }
+
+        // 🔥 01/01 ou 01.01
+        const matchNumerico = str.match(/(\d{1,2})[\/\.](\d{1,2})/);
+        if (matchNumerico) {
+            dia = parseInt(matchNumerico[1]);
+            mes = parseInt(matchNumerico[2]) - 1;
+        }
+
+        // 🔥 01 de janeiro
+        const matchDiaMes = str.match(/(\d{1,2})\s+de\s+([a-z]+)/);
+        if (matchDiaMes) {
+            dia = parseInt(matchDiaMes[1]);
+            mes = this.meses[matchDiaMes[2]] ?? -1;
+        }
+
+        // 🔥 Janeiro
+        for (const [nome, idx] of Object.entries(this.meses)) {
+            if (str.includes(nome)) {
+                mes = idx;
+                break;
+            }
+        }
+
+        const matchAno = str.match(/\b(20\d{2})\b/);
+        if (matchAno) ano = parseInt(matchAno[1]);
+
+        if (mes === -1) return null;
+
+        if (!matchAno) {
+            const dataTeste = new Date(ano, mes, dia);
+            if (dataTeste > hoje) ano -= 1;
+        }
+
+        const dataInicio = new Date(ano, mes, dia);
+
+        const dataFim = ehAgrupado
+            ? new Date(ano, mes + mesesDuracao, 0)
+            : (str.match(/\d{1,2}/)
+                ? new Date(ano, mes, dia)
+                : new Date(ano, mes + 1, 0));
+
+        return { inicio: dataInicio, fim: dataFim };
+    }
+
+    _formatarSaida(obj) {
+        return {
+            data_inicio: this._dateToStr(obj.inicio),
+            data_fim: this._dateToStr(obj.fim),
+            trecho_encontrado: obj.texto.trim()
+        };
+    }
+
+    _dateToStr(data) {
+        const y = data.getFullYear();
+        const d = String(data.getDate()).padStart(2, '0');
+        const m = String(data.getMonth() + 1).padStart(2, '0');
+        return `${y}/${d}/${m}`;
+    }
+}
+
+module.exports = PeriodoService;
