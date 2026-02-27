@@ -25,7 +25,7 @@ class PeriodoService {
         const anoAtual = hoje.getFullYear();
 
         // 🔥 Regex melhorado
-        const regexGeral = /(?:\d{1,2}\s+de\s+)?(?:\d{1,2}[\/\.]\d{1,2}(?:[\/\.]\d{2,4})?|\d{4}|\b(?:janeiro|fevereiro|marco|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro|bimestre|trimestre|quadrimestre|semestre)\b)(?:\s+de\s+\d{4})?/gi;
+        const regexGeral = /(?:\d{1,2}\s+de\s+)?(?:\d{1,2}[\/\.]\d{1,2}(?:[\/\.]\d{2,4})?|\d{4}|\b(?:janeiro|fevereiro|marco|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro|bimestre|trimestre|quadrimestre|semestre)\b)(?:\s+(?:de\s+)?\d{4})?/gi;
 
         let fragmentos = [];
         let match;
@@ -150,11 +150,19 @@ class PeriodoService {
 
         const dataInicio = new Date(ano, mes, dia);
 
-        const dataFim = ehAgrupado
-            ? new Date(ano, mes + mesesDuracao, 0)
-            : (str.match(/\d{1,2}/)
-                ? new Date(ano, mes, dia)
-                : new Date(ano, mes + 1, 0));
+        let dataFim;
+        if (ehAgrupado) {
+            dataFim = new Date(ano, mes + mesesDuracao, 0);
+        } else {
+            // Se o texto contém apenas o nome do mês (sem dia explícito \d{1,2} de ...)
+            // então pegamos o mês inteiro.
+            const temDiaExplicito = /^\d{1,2}\s+de/i.test(str) || /\d{1,2}[\/\.]\d{1,2}/.test(str);
+            if (temDiaExplicito) {
+                dataFim = new Date(ano, mes, dia);
+            } else {
+                dataFim = new Date(ano, mes + 1, 0);
+            }
+        }
 
         return { inicio: dataInicio, fim: dataFim };
     }
@@ -171,7 +179,7 @@ class PeriodoService {
         const y = data.getFullYear();
         const d = String(data.getDate()).padStart(2, '0');
         const m = String(data.getMonth() + 1).padStart(2, '0');
-        return `${y}/${d}/${m}`;
+        return `${y}-${m}-${d}`;
     }
 }
 

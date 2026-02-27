@@ -1,6 +1,7 @@
 const fs = require("fs");
 
-const caminhoCsv = "../src/data/entidades/convenio_despesa.csv";
+const path = require("path");
+const caminhoCsv = path.join(__dirname, "..", "..", "data", "entidades", "convenio_despesa.csv");
 
 class ConvenioDespesaService {
 

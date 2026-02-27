@@ -1,5 +1,6 @@
 const fs = require("fs");
-const caminhoCsv = "../src/data/entidades/fonte.csv";
+const path = require("path");
+const caminhoCsv = path.join(__dirname, "..", "..", "data", "entidades", "fonte.csv");
 
 /**
  * Normaliza texto para comparação

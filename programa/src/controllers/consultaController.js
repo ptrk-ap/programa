@@ -37,7 +37,7 @@ async function consulta(req, res, next) {
 
         //procura filtros nos pedaços
         const filtros = await filtroService.processarFiltros(divisor);
-        //console.log(filtros);
+        console.log(filtros);
 
 
         //monta a query

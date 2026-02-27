@@ -27,7 +27,8 @@ class QueryService {
             "convenio_receita",
             "convenio_despesa",
             "contrato",
-            "credor"
+            "credor",
+            "ordem_bancaria"
         ];
 
         this.VALUE_COLUMNS = [
@@ -86,6 +87,9 @@ class QueryService {
         const valoresSolicitados = camposSolicitados.filter(c =>
             this.VALUE_COLUMNS.includes(c)
         );
+
+        // Se houver filtro de período mas nenhum campo solicitado, garantimos que periodo nãos seja removido
+        // na filtragem de filtrosValidos abaixo
 
         if (valoresSolicitados.length === 0) {
             throw new Error("É obrigatório informar ao menos um campo de valor.");
@@ -184,6 +188,18 @@ class QueryService {
 
                 // Adicionamos o wildcard % para buscar a frase em qualquer parte do nome
                 params.push(...valores.map(v => `%${v}%`));
+            } else if (entidade === "ordem_bancaria") {
+                // Lógica para intervalo de datas (ordem_bancaria)
+                // valores aqui são objetos {data_inicio, data_fim, trecho_encontrado} vindos do DateService
+                const dateBlocks = [];
+                const arrOriginal = filtrosEncontrados[entidade];
+                for (const p of arrOriginal) {
+                    dateBlocks.push(`\`ordem_bancaria\` BETWEEN ? AND ?`);
+                    params.push(p.data_inicio, p.data_fim);
+                }
+                if (dateBlocks.length > 0) {
+                    partesIndependentes.push(`(${dateBlocks.join(" OR ")})`);
+                }
             } else {
                 // Lógica padrão IN para os demais
                 const placeholders = valores.map(() => "?").join(", ");

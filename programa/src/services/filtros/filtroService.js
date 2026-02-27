@@ -23,7 +23,7 @@ class FiltroService {
     constructor() {
         // Instanciamos os serviços uma única vez no construtor
         this.services = {
-            periodo: new PeriodoService(),
+            ordem_bancaria: new PeriodoService(),
             unidade_gestora: new UgService(),
             natureza_despesa: new NaturezaService(),
             fonte: new FonteService(),
@@ -97,8 +97,10 @@ class FiltroService {
         for (const [entidade, lista] of Object.entries(filtrosEncontrados)) {
             if (lista.length > 0) {
                 // Filtra duplicatas baseadas no código (único para cada entidade)
+                // Se for 'periodo', não possui código, então mantemos todos (ou poderíamos filtrar por string exata)
                 const idsUnicos = new Set();
                 resultadoFinal[entidade] = lista.filter(item => {
+                    if (entidade === "ordem_bancaria") return true;
                     if (idsUnicos.has(item.codigo)) return false;
                     idsUnicos.add(item.codigo);
                     return true;
