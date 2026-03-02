@@ -37,7 +37,6 @@ async function consulta(req, res, next) {
 
         //procura filtros nos pedaços
         const filtros = await filtroService.processarFiltros(divisor);
-        console.log(filtros);
 
 
         //monta a query
@@ -49,20 +48,18 @@ async function consulta(req, res, next) {
 
         //formatar resultado para reais
         const resultadoFormatado = FormatterService.formatarResultado(rows);
-
-        return res.json(resultadoFormatado);
-
-        /*
-        
-   
-
-        
-
-      
-
-        */
+        if (filtros.ordem_bancaria && filtros.ordem_bancaria.length > 0) {
+            aux = filtros.ordem_bancaria;
+            console.log(filtros.ordem_bancaria);
+        }
+        const resposta = {
+            mensagem: aux,
+            resultado: resultadoFormatado
+        }
 
 
+        return res.json(resposta);
+        aux = '';
 
     } catch (err) {
         //next(err);

@@ -1,6 +1,5 @@
 const fs = require("fs");
-const path = require("path");
-const caminhoCsv = path.join(__dirname, "..", "..", "data", "entidades", "poder.csv");
+const caminhoCsv = "../src/data/entidades/poder.csv";
 const { resolverPercentualMinimo } = require("../../utils/sensibilidadeMatcher");
 
 const PERCENTUAL_PADRAO = 0.7;
