@@ -7,13 +7,13 @@ const QueryService = require("../services/query/queryService");
 const queryService = new QueryService();
 const pool = require("../database/connection");
 const FormatterService = require("../services/entidades/formatterService");
-const DateService = require("../services/filtros/dateService");
 
 
 
 
 async function consulta(req, res, next) {
     const consultaFrase = req.body.frase;
+    let aux = '';
 
     if (!consultaFrase || typeof consultaFrase !== "string") {
         return res.status(400).json({
@@ -59,7 +59,7 @@ async function consulta(req, res, next) {
 
 
         return res.json(resposta);
-        aux = '';
+
 
     } catch (err) {
         //next(err);

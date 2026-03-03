@@ -59,6 +59,36 @@ class PeriodoService {
 
         if (fragmentos.length === 0) return [];
 
+        // --- PROPAGAÇÃO DE ANOS ---
+        // 1. Backward: "maio e junho de 2024" -> maio herda 2024
+        for (let i = fragmentos.length - 2; i >= 0; i--) {
+            const atual = fragmentos[i];
+            const proximo = fragmentos[i + 1];
+            if (proximo.anoExplicito && !atual.anoExplicito) {
+                const entre = frase.substring(atual.index + atual.length, proximo.index).trim().toLowerCase();
+                // Permitimos vazio/espaço ou os separadores comuns
+                if (entre === "" || /^(e|,|ou|a|ate|até)$/i.test(entre)) {
+                    atual.inicio.setFullYear(proximo.inicio.getFullYear());
+                    atual.fim.setFullYear(proximo.inicio.getFullYear());
+                    atual.anoExplicito = true;
+                }
+            }
+        }
+
+        // 2. Forward: "janeiro de 2024 e fevereiro" -> fevereiro herda 2024
+        for (let i = 1; i < fragmentos.length; i++) {
+            const anterior = fragmentos[i - 1];
+            const atual = fragmentos[i];
+            if (anterior.anoExplicito && !atual.anoExplicito) {
+                const entre = frase.substring(anterior.index + anterior.length, atual.index).trim().toLowerCase();
+                if (entre === "" || /^(e|,|ou|a|ate|até)$/i.test(entre)) {
+                    atual.inicio.setFullYear(anterior.inicio.getFullYear());
+                    atual.fim.setFullYear(anterior.inicio.getFullYear());
+                    atual.anoExplicito = true;
+                }
+            }
+        }
+
         const resultados = [];
         let atual = fragmentos[0];
 
@@ -70,27 +100,10 @@ class PeriodoService {
                 .trim();
 
             if (/^(ate|até|a)$/i.test(entreTrechos)) {
-
-                // REGRA NOVA: ano explícito prevalece
-                if (proximo.anoExplicito && !atual.anoExplicito) {
-                    atual.inicio.setFullYear(proximo.inicio.getFullYear());
-                    atual.fim.setFullYear(proximo.inicio.getFullYear());
-                }
-                else if (!proximo.anoExplicito && atual.anoExplicito) {
-                    proximo.inicio.setFullYear(atual.inicio.getFullYear());
-                    proximo.fim.setFullYear(atual.inicio.getFullYear());
-                }
-                else if (!proximo.anoExplicito && !atual.anoExplicito) {
-                    if (proximo.fim < atual.inicio) {
-                        proximo.inicio.setFullYear(atual.inicio.getFullYear());
-                        proximo.fim.setFullYear(atual.inicio.getFullYear());
-                    }
-                }
-
+                // Merging logic
                 atual.fim = proximo.fim;
                 atual.texto = frase.substring(atual.index, proximo.index + proximo.length);
                 atual.length = atual.texto.length;
-
             } else {
                 resultados.push(this._formatarSaida(atual));
                 atual = proximo;

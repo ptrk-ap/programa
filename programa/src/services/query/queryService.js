@@ -131,7 +131,7 @@ class QueryService {
         const groupByParts = [];
 
         for (const entidade of this.ENTITY_COLUMNS) {
-            if (entidadesFinais.has(entidade)) {
+            if (entidadesFinais.has(entidade) && entidade !== "ordem_bancaria") {
                 selectParts.push(this._quoteIdent(entidade));
                 groupByParts.push(this._quoteIdent(entidade));
             }
