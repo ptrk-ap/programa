@@ -2,9 +2,9 @@ const fs = require("fs");
 const path = require("path");
 const caminhoCsv = path.join(__dirname, "..", "..", "data", "entidades", "natureza_despesa.csv");
 const { resolverPercentualMinimo } = require("../../utils/sensibilidadeMatcher");
-const PERCENTUAL_PADRAO = 0.7;
+const PERCENTUAL_PADRAO = 0.5;
 const REGRAS_SENSIBILIDADE = [
-    { palavra: "natureza_despesa", percentual: 0.5 }
+    { palavra: "natureza_despesa", percentual: 0.4 }
 ];
 /**
  * Normaliza texto para comparação:

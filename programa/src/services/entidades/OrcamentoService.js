@@ -198,6 +198,12 @@ class OrcamentoService {
                 "liquidados",
                 "liquida",
                 "liquidadas"
+            ],
+            "agrupamento_mensal": [
+                "mes a mes",
+                "por mes",
+                "cada mes",
+                "mensalmente"
             ]
         };
 

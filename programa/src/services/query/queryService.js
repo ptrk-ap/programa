@@ -28,7 +28,8 @@ class QueryService {
             "convenio_despesa",
             "contrato",
             "credor",
-            "ordem_bancaria"
+            "ordem_bancaria",
+            "agrupamento_mensal"
         ];
 
         this.VALUE_COLUMNS = [
@@ -131,9 +132,14 @@ class QueryService {
         const groupByParts = [];
 
         for (const entidade of this.ENTITY_COLUMNS) {
-            if (entidadesFinais.has(entidade) && entidade !== "ordem_bancaria") {
-                selectParts.push(this._quoteIdent(entidade));
-                groupByParts.push(this._quoteIdent(entidade));
+            if (entidadesFinais.has(entidade)) {
+                if (entidade === "agrupamento_mensal") {
+                    selectParts.push(`MONTH(ordem_bancaria) AS mes`);
+                    groupByParts.push(`mes`);
+                } else if (entidade !== "ordem_bancaria") {
+                    selectParts.push(this._quoteIdent(entidade));
+                    groupByParts.push(this._quoteIdent(entidade));
+                }
             }
         }
 
@@ -201,10 +207,10 @@ class QueryService {
                     partesIndependentes.push(`(${dateBlocks.join(" OR ")})`);
                 }
             } else {
-                // Lógica padrão IN para os demais
-                const placeholders = valores.map(() => "?").join(", ");
-                partesIndependentes.push(`${this._quoteIdent(entidade)} IN (${placeholders})`);
-                params.push(...valores);
+                // Lógica padrão LIKE para os demais (resiliência contra espaços extras)
+                const likes = valores.map(() => `${this._quoteIdent(entidade)} LIKE ?`).join(" OR ");
+                partesIndependentes.push(`(${likes})`);
+                params.push(...valores.map(v => `${v}%`));
             }
         }
 
@@ -236,6 +242,10 @@ class QueryService {
             if (camposDisponiveis.length > 0) {
                 orderClause = `ORDER BY ${camposDisponiveis.map(c => `\`${c}\` DESC`).join(", ")}`;
             }
+        }
+
+        if (entidadesFinais.has("agrupamento_mensal")) {
+            orderClause = orderClause ? `${orderClause}, \`mes\` ASC` : `ORDER BY \`mes\` ASC`;
         }
 
         // -------------------------------

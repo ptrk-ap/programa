@@ -27,7 +27,8 @@ class ExtratorTermosService {
             "contrato",
             "convenio_despesa",
             "convenio_receita",
-            "credor"
+            "credor",
+            "agrupamento_mensal"
         ];
     }
 
