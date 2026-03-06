@@ -32,11 +32,11 @@ class PeriodoService {
         };
     }
 
-    extrair(frase) {
+    extrair(frase, anoReferencia) {
         if (!frase || !this._deveAtivar(frase)) return [];
 
         const hoje = new Date(2026, 1, 25);
-        const anoAtual = hoje.getFullYear();
+        const anoAtual = anoReferencia || hoje.getFullYear();
 
         const regexGeral = /(?:\d{1,2}\s+de\s+)?(?:\d{1,2}[\/\.]\d{1,2}(?:[\/\.]\d{2,4})?|\d{4}|\b(?:(?:primeiro|segundo|terceiro|quarto|quinto|sexto|\d+\s*[oº°])\s+)?(?:janeiro|fevereiro|marco|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro|bimestre|trimestre|quadrimestre|semestre)\b)(?:\s+(?:de\s+)?\d{4})?/gi;
 
@@ -204,7 +204,7 @@ class PeriodoService {
 
         if (mes === -1) return null;
 
-        if (!anoExplicito) {
+        if (!anoExplicito && !anoReferencia) {
             const dataTeste = new Date(ano, mes, dia);
             if (dataTeste > hoje) ano -= 1;
         }

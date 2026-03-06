@@ -35,13 +35,17 @@ async function consulta(req, res, next) {
         //quebra a frase em pedaços usando os termos do banco como marcador
         const divisor = Splitservice.quebrarFrase(fraseProcessada);
 
-        //procura filtros nos pedaços
+        // Procura filtros nos pedaços
         const filtros = await filtroService.processarFiltros(divisor);
         console.log(filtros);
 
+        // Extrai o ano para a query
+        const anoQuery = filtros.ano && filtros.ano.length > 0
+            ? filtros.ano[0].codigo
+            : 2026;
 
-        //monta a query
-        const { sql, params } = queryService.buildQuery(parametrosEncontrados, filtros);
+        // Monta a query
+        const { sql, params } = queryService.buildQuery(parametrosEncontrados, filtros, anoQuery);
         //console.log(sql, params);
 
         //executar conulta sql

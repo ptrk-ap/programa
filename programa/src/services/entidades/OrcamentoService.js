@@ -156,6 +156,8 @@ class OrcamentoService {
                 "dotação inicial",
                 "dotações iniciais",
                 "dotacao inicial",
+                "orcamento inicial",
+                "orcamento",
                 "dotacoes iniciais"
             ],
 

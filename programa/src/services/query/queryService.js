@@ -1,6 +1,5 @@
 class QueryService {
     constructor() {
-        this.table = "execucao";
 
         // Hierarquia oficial (campos que usam lógica de OR/AND hierárquico)
         this.HIERARCHY_LEVEL = {
@@ -78,7 +77,8 @@ class QueryService {
         }
     }
 
-    buildQuery(camposSolicitados = [], filtrosEncontrados = {}) {
+    buildQuery(camposSolicitados = [], filtrosEncontrados = {}, ano = 2026) {
+        const tableName = `execucao${ano}`;
         this._validateFields(camposSolicitados);
 
         const entidadesSolicitadas = camposSolicitados.filter(c =>
@@ -253,7 +253,7 @@ class QueryService {
         // -------------------------------
         const sql = `
             SELECT ${selectParts.join(", ")}
-            FROM ${this._quoteIdent(this.table)}
+            FROM ${this._quoteIdent(tableName)}
             ${whereClause}
             GROUP BY ${groupByParts.join(", ")}
             ${orderClause}

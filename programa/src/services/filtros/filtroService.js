@@ -18,11 +18,13 @@ const ConvenioDespesaService = require("./conveniodespesaService");
 const ConvenioReceitaService = require("./convenioreceitaService");
 const CredorService = require("./credorService"); // Novo serviço assíncrono
 const PeriodoService = require("./dateService");
+const AnoService = require("./anoService");
 
 class FiltroService {
     constructor() {
         // Instanciamos os serviços uma única vez no construtor
         this.services = {
+            ano: new AnoService(),
             ordem_bancaria: new PeriodoService(),
             unidade_gestora: new UgService(),
             natureza_despesa: new NaturezaService(),
@@ -67,7 +69,16 @@ class FiltroService {
                     // Se o trecho ficou vazio (tudo foi removido por serviços anteriores), pula
                     if (!trecho || trecho.trim().length === 0) break;
 
-                    const resultados = await service.extrair(trecho);
+                    let resultados;
+                    if (entidade === "ordem_bancaria") {
+                        // Passamos o ano encontrado (ou o padrão) como referência para o DateService
+                        const anoFiltro = filtrosEncontrados.ano && filtrosEncontrados.ano.length > 0
+                            ? filtrosEncontrados.ano[0].codigo
+                            : this.services.ano.getAnoPadrao();
+                        resultados = await service.extrair(trecho, anoFiltro);
+                    } else {
+                        resultados = await service.extrair(trecho);
+                    }
 
                     if (resultados && resultados.length > 0) {
                         // Adiciona os resultados encontrados
