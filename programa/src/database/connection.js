@@ -1,28 +1,14 @@
-const mysql = require("mysql2/promise");
-
-const pool = mysql.createPool({
-  host: "localhost",
-  user: "root",
-  password: "",
-  database: "siafic",
-  waitForConnections: true,
-  connectionLimit: 10,
-  queueLimit: 0
+const knex = require("knex")({
+  client: "mysql2",
+  connection: {
+    host: process.env.DB_HOST || "localhost",
+    user: process.env.DB_USER || "root",
+    password: process.env.DB_PASSWORD || process.env.DB_PASS || "",
+    database: process.env.DB_NAME || "siafic"
+  },
+  pool: { min: 2, max: 10 }
 });
 
+module.exports = knex;
 
-// teste de conexão inicial
-(async () => {
-  try {
-    const connection = await pool.getConnection();
-    console.log("✅ Conectado ao MySQL com sucesso");
-    connection.release();
-  } catch (err) {
-    console.error("❌ Erro ao conectar no MySQL");
-    console.error(err.message);
-    process.exit(1);
-
-  }
-})();
-
-module.exports = pool;
+

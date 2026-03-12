@@ -1,282 +1,51 @@
+const { ENTITY_COLUMNS, VALUE_COLUMNS } = require("./QueryConfig");
+const { validateFields, validateValueFields, validateEntities } = require("./QueryValidator");
+const { processFiltros, separateFiltros } = require("./FilterProcessor");
+const { buildSelectAndGroupBy, buildWhere, buildOrderBy } = require("./QueryBuilder");
+
 class QueryService {
-    constructor() {
-
-        // Hierarquia oficial (campos que usam lógica de OR/AND hierárquico)
-        this.HIERARCHY_LEVEL = {
-            poder: 1,
-            unidade_gestora: 2,
-            unidade_orcamentaria: 3
-        };
-
-        this.ENTITY_COLUMNS = [
-            "poder",
-            "unidade_gestora",
-            "unidade_orcamentaria",
-            "eixo",
-            "programa",
-            "acao",
-            "ods",
-            "emenda",
-            "funcao",
-            "categoria_despesa",
-            "grupo_despesa",
-            "elemento_despesa",
-            "natureza_despesa",
-            "fonte",
-            "convenio_receita",
-            "convenio_despesa",
-            "contrato",
-            "credor",
-            "ordem_bancaria",
-            "agrupamento_mensal"
-        ];
-
-        this.VALUE_COLUMNS = [
-            "dotacao_inicial",
-            "despesas_empenhadas",
-            "despesas_liquidadas",
-            "despesas_exercicio_pagas",
-            "despesas_pagas"
-        ];
-
-        this.ALL_ALLOWED = new Set([
-            ...this.ENTITY_COLUMNS,
-            ...this.VALUE_COLUMNS
-        ]);
-    }
-
-    _quoteIdent(name) {
-        return `\`${name}\``;
-    }
-
-    /**
-     * Formata os valores vindos da busca.
-     * Se for 'credor', extrai apenas o código para busca por LIKE.
-     */
-    _toEntityValues(arr = [], entidade = "") {
-        return arr
-            .map(i => {
-                const codigo = String(i.codigo).trim();
-                const descricao = String(i.descricao || "").trim();
-
-                // Regra solicitada: Para credor, buscar apenas pelo código
-                if (entidade === "credor") {
-                    return codigo;
-                }
-
-                // Para as demais entidades, mantém o padrão "codigo - descricao"
-                return descricao ? `${codigo} - ${descricao}` : codigo;
-            })
-            .filter(Boolean);
-    }
-
-    _validateFields(fields = []) {
-        const invalid = fields.filter(f => !this.ALL_ALLOWED.has(f));
-        if (invalid.length) {
-            throw new Error(`Campos inválidos: ${invalid.join(", ")}`);
-        }
-    }
-
     buildQuery(camposSolicitados = [], filtrosEncontrados = {}, ano = 2026) {
-        const tableName = `execucao${ano}`;
-        this._validateFields(camposSolicitados);
+        const tableName = `\`execucao${ano}\``;
 
-        const entidadesSolicitadas = camposSolicitados.filter(c =>
-            this.ENTITY_COLUMNS.includes(c)
-        );
+        // 1. Validação dos campos solicitados
+        validateFields(camposSolicitados);
 
-        const valoresSolicitados = camposSolicitados.filter(c =>
-            this.VALUE_COLUMNS.includes(c)
-        );
+        const entidadesSolicitadas = camposSolicitados.filter(c => ENTITY_COLUMNS.includes(c));
+        const valoresSolicitados   = camposSolicitados.filter(c => VALUE_COLUMNS.includes(c));
 
-        // Se houver filtro de período mas nenhum campo solicitado, garantimos que periodo nãos seja removido
-        // na filtragem de filtrosValidos abaixo
+        validateValueFields(valoresSolicitados);
 
-        if (valoresSolicitados.length === 0) {
-            throw new Error("É obrigatório informar ao menos um campo de valor.");
-        }
+        // 2. Processamento dos filtros
+        const filtrosValidos = processFiltros(filtrosEncontrados);
 
-        // -------------------------------
-        // PROCESSA FILTROS
-        // -------------------------------
-        const filtrosValidos = {};
-        for (const [entidade, arr] of Object.entries(filtrosEncontrados)) {
-            if (
-                this.ENTITY_COLUMNS.includes(entidade) &&
-                Array.isArray(arr) &&
-                arr.length > 0
-            ) {
-                const values = this._toEntityValues(arr, entidade);
-                if (values.length > 0) {
-                    filtrosValidos[entidade] = values;
-                }
-            }
-        }
-
-        // -------------------------------
-        // DEFINE ENTIDADES FINAIS
-        // -------------------------------
+        // 3. Entidades finais (solicitadas + filtradas)
         const entidadesFinais = new Set([
             ...entidadesSolicitadas,
             ...Object.keys(filtrosValidos)
         ]);
 
-        if (entidadesFinais.size === 0) {
-            throw new Error("É obrigatório informar ao menos uma entidade.");
-        }
+        validateEntities(entidadesFinais);
 
-        // -------------------------------
-        // SELECT + GROUP BY
-        // -------------------------------
-        const selectParts = [];
-        const groupByParts = [];
+        // 4. Separação hierárquicos x independentes
+        const { hierarquicos, independentes } = separateFiltros(filtrosValidos);
 
-        for (const entidade of this.ENTITY_COLUMNS) {
-            if (entidadesFinais.has(entidade)) {
-                if (entidade === "agrupamento_mensal") {
-                    selectParts.push(`MONTH(ordem_bancaria) AS mes`);
-                    groupByParts.push(`mes`);
-                } else if (entidade !== "ordem_bancaria") {
-                    selectParts.push(this._quoteIdent(entidade));
-                    groupByParts.push(this._quoteIdent(entidade));
-                }
-            }
-        }
+        // 5. Montagem das cláusulas SQL
+        const { selectParts, groupByParts } = buildSelectAndGroupBy(entidadesFinais, valoresSolicitados);
+        const { whereClause, params }        = buildWhere(hierarquicos, independentes, filtrosEncontrados);
+        const orderClause                    = buildOrderBy(entidadesFinais, selectParts);
 
-        for (const val of valoresSolicitados) {
-            selectParts.push(
-                `SUM(${this._quoteIdent(val)}) AS ${this._quoteIdent(`soma_${val}`)}`
-            );
-        }
-
-        // -------------------------------
-        // CONSTRUÇÃO DO WHERE
-        // -------------------------------
-        const params = [];
-        const hierarquicos = {};
-        const independentes = {};
-
-        for (const [entidade, valores] of Object.entries(filtrosValidos)) {
-            const nivel = this.HIERARCHY_LEVEL[entidade];
-            if (nivel) {
-                if (!hierarquicos[nivel]) hierarquicos[nivel] = {};
-                hierarquicos[nivel][entidade] = valores;
-            } else {
-                independentes[entidade] = valores;
-            }
-        }
-
-        // Blocos Hierárquicos (Poder, UG, UO)
-        const blocosHierarquicos = [];
-        for (const nivel of Object.keys(hierarquicos)) {
-            const entidadesNivel = hierarquicos[nivel];
-            const partes = [];
-            for (const [entidade, valores] of Object.entries(entidadesNivel)) {
-                const placeholders = valores.map(() => "?").join(", ");
-                partes.push(`${this._quoteIdent(entidade)} IN (${placeholders})`);
-                params.push(...valores);
-            }
-            blocosHierarquicos.push(`(${partes.join(" AND ")})`);
-        }
-
-        // Filtros Independentes (Fonte, Credor, Ação, etc.)
-        const partesIndependentes = [];
-        for (const [entidade, valores] of Object.entries(independentes)) {
-            if (entidade === "credor") {
-                // MODIFICAÇÃO AQUI:
-                // Aplicamos COLLATE utf8mb4_general_ci para ignorar acentos/cedilha
-                // E usamos LIKE para permitir a frase normatizada
-                const likes = valores.map(() =>
-                    `${this._quoteIdent(entidade)} COLLATE utf8mb4_general_ci LIKE ?`
-                ).join(" OR ");
-
-                partesIndependentes.push(`(${likes})`);
-
-                // Adicionamos o wildcard % para buscar a frase em qualquer parte do nome
-                params.push(...valores.map(v => `%${v}%`));
-            } else if (entidade === "ordem_bancaria") {
-                // Lógica para intervalo de datas (ordem_bancaria)
-                // valores aqui são objetos {data_inicio, data_fim, trecho_encontrado} vindos do DateService
-                const dateBlocks = [];
-                const arrOriginal = filtrosEncontrados[entidade];
-                for (const p of arrOriginal) {
-                    dateBlocks.push(`\`ordem_bancaria\` BETWEEN ? AND ?`);
-                    params.push(p.data_inicio, p.data_fim);
-                }
-                if (dateBlocks.length > 0) {
-                    partesIndependentes.push(`(${dateBlocks.join(" OR ")})`);
-                }
-            } else {
-                // Lógica padrão LIKE para os demais (resiliência contra espaços extras)
-                const likes = valores.map(() => `${this._quoteIdent(entidade)} LIKE ?`).join(" OR ");
-                partesIndependentes.push(`(${likes})`);
-                params.push(...valores.map(v => `${v}%`));
-            }
-        }
-
-        let whereClause = "";
-        if (blocosHierarquicos.length > 0 && partesIndependentes.length > 0) {
-            whereClause = `WHERE (${blocosHierarquicos.join(" OR ")}) AND ${partesIndependentes.join(" AND ")}`;
-        } else if (blocosHierarquicos.length > 0) {
-            whereClause = `WHERE ${blocosHierarquicos.join(" OR ")}`;
-        } else if (partesIndependentes.length > 0) {
-            whereClause = `WHERE ${partesIndependentes.join(" AND ")}`;
-        }
-
-        // -------------------------------
-        // ORDENAÇÃO DINÂMICA
-        // -------------------------------
-        let orderClause = "";
-        if (entidadesFinais.has("credor")) {
-            const prioridadeOrdenacao = [
-                "soma_despesas_empenhadas",
-                "soma_despesas_liquidadas",
-                "soma_despesas_pagas",
-                "soma_despesas_exercicio_pagas"
-            ];
-
-            const camposDisponiveis = prioridadeOrdenacao.filter(campo =>
-                selectParts.some(p => p.includes(`AS \`${campo}\``))
-            );
-
-            if (camposDisponiveis.length > 0) {
-                orderClause = `ORDER BY ${camposDisponiveis.map(c => `\`${c}\` DESC`).join(", ")}`;
-            }
-        }
-
-        if (entidadesFinais.has("agrupamento_mensal")) {
-            orderClause = orderClause ? `${orderClause}, \`mes\` ASC` : `ORDER BY \`mes\` ASC`;
-        }
-
-        // -------------------------------
-        // SQL FINAL
-        // -------------------------------
+        // 6. SQL final
         const sql = `
             SELECT ${selectParts.join(", ")}
-            FROM ${this._quoteIdent(tableName)}
+            FROM ${tableName}
             ${whereClause}
             GROUP BY ${groupByParts.join(", ")}
             ${orderClause}
             LIMIT 100
-        `.trim().replace(/\s+/g, ' '); // Limpa espaços extras
+        `.trim().replace(/\s+/g, ' ');
 
         return { sql, params };
     }
 }
 
 module.exports = QueryService;
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

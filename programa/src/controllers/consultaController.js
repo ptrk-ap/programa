@@ -5,7 +5,7 @@ const Splitservice = require("../services/entidades/splitService");
 const filtroService = require("../services/filtros/filtroService");
 const QueryService = require("../services/query/queryService");
 const queryService = new QueryService();
-const pool = require("../database/connection");
+const knex = require("../database/connection");
 const FormatterService = require("../services/entidades/formatterService");
 
 
@@ -49,7 +49,7 @@ async function consulta(req, res, next) {
         //console.log(sql, params);
 
         //executar conulta sql
-        const [rows] = await pool.execute(sql, params);
+        const [rows] = await knex.raw(sql, params);
 
         //formatar resultado para reais
         const resultadoFormatado = FormatterService.formatarResultado(rows);
