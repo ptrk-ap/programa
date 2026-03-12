@@ -187,6 +187,7 @@ class OrcamentoService {
                 "despesa paga",
                 "despesas pagas",
                 "pago",
+                "gasto",
                 "pagos",
                 "paga",
                 "pagas",

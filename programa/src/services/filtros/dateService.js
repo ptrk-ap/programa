@@ -38,12 +38,17 @@ class PeriodoService {
         const hoje = new Date(2026, 1, 25);
         const anoAtual = anoReferencia || hoje.getFullYear();
 
-        const regexGeral = /(?:\d{1,2}\s+de\s+)?(?:\d{1,2}[\/\.]\d{1,2}(?:[\/\.]\d{2,4})?|\d{4}|\b(?:(?:primeiro|segundo|terceiro|quarto|quinto|sexto|\d+\s*[oº°])\s+)?(?:janeiro|fevereiro|marco|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro|bimestre|trimestre|quadrimestre|semestre)\b)(?:\s+(?:de\s+)?\d{4})?/gi;
+        // Ano isolado limitado a 2020-2035; palavra "acao" antes bloqueia captura
+        const regexGeral = /(?<!\bacao\s{0,5})(?<!\bacao)\b(?:\d{1,2}\s+de\s+)?(?:\d{1,2}[\/\.]\d{1,2}(?:[\/\.]\d{2,4})?|20(?:2[0-9]|3[0-5])\b|(?:(?:primeiro|segundo|terceiro|quarto|quinto|sexto|\d+\s*[oº°])\s+)?(?:janeiro|fevereiro|marco|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro|bimestre|trimestre|quadrimestre|semestre))(?:\s+(?:de\s+)?(?:20(?:2[0-9]|3[0-5])))?/gi;
 
         let fragmentos = [];
         let match;
 
         while ((match = regexGeral.exec(frase)) !== null) {
+            // Bloqueia se a palavra "acao" precede o trecho (guarda extra além do lookbehind)
+            const precedente = frase.substring(0, match.index).trimEnd().toLowerCase();
+            if (/\bacao$/.test(precedente)) continue;
+
             const info = this._parseFragmento(match[0], anoAtual, hoje);
             if (info) {
                 fragmentos.push({
@@ -59,14 +64,12 @@ class PeriodoService {
 
         if (fragmentos.length === 0) return [];
 
-        // --- PROPAGAÇÃO DE ANOS ---
-        // 1. Backward: "maio e junho de 2024" -> maio herda 2024
+        // Backward: "maio e junho de 2024" -> maio herda 2024
         for (let i = fragmentos.length - 2; i >= 0; i--) {
             const atual = fragmentos[i];
             const proximo = fragmentos[i + 1];
             if (proximo.anoExplicito && !atual.anoExplicito) {
                 const entre = frase.substring(atual.index + atual.length, proximo.index).trim().toLowerCase();
-                // Permitimos vazio/espaço ou os separadores comuns
                 if (entre === "" || /^(e|,|ou|a|ate|até)$/i.test(entre)) {
                     atual.inicio.setFullYear(proximo.inicio.getFullYear());
                     atual.fim.setFullYear(proximo.inicio.getFullYear());
@@ -75,7 +78,7 @@ class PeriodoService {
             }
         }
 
-        // 2. Forward: "janeiro de 2024 e fevereiro" -> fevereiro herda 2024
+        // Forward: "janeiro de 2024 e fevereiro" -> fevereiro herda 2024
         for (let i = 1; i < fragmentos.length; i++) {
             const anterior = fragmentos[i - 1];
             const atual = fragmentos[i];
@@ -100,7 +103,6 @@ class PeriodoService {
                 .trim();
 
             if (/^(ate|até|a)$/i.test(entreTrechos)) {
-                // Merging logic
                 atual.fim = proximo.fim;
                 atual.texto = frase.substring(atual.index, proximo.index + proximo.length);
                 atual.length = atual.texto.length;
@@ -138,10 +140,11 @@ class PeriodoService {
         let mesesDuracao = 1;
         let anoExplicito = false;
 
-        // Ano isolado
+        // Ano isolado — apenas 4 dígitos e entre 2020-2035
         const matchAnoIsolado = str.match(/^\d{4}$/);
         if (matchAnoIsolado) {
             ano = parseInt(matchAnoIsolado[0]);
+            if (ano < 2020 || ano > 2035) return null;
             return {
                 inicio: new Date(ano, 0, 1),
                 fim: new Date(ano, 11, 31),
@@ -152,7 +155,6 @@ class PeriodoService {
         // Períodos agrupados
         for (const [nome, meses] of Object.entries(this.periodosAgrupados)) {
             if (str.includes(nome)) {
-
                 let ordinal = 1;
 
                 for (const [nNome, nVal] of Object.entries(this.numerais)) {
@@ -196,9 +198,11 @@ class PeriodoService {
             }
         }
 
+        // Ano inline — apenas 4 dígitos e entre 2020-2035
         const matchAno = str.match(/\b(20\d{2})\b/);
         if (matchAno) {
             ano = parseInt(matchAno[1]);
+            if (ano < 2020 || ano > 2035) return null;
             anoExplicito = true;
         }
 

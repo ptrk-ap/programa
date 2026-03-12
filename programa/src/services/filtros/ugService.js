@@ -87,6 +87,42 @@ class UnidadeGestoraService {
      * 2. Mnemônico
      * 3. Descrição (fallback)
      */
+    /**
+ * Encontra o menor trecho contíguo da frase original
+ * que contém a maior parte das palavras-chave da descrição.
+ */
+    _extrairTrechoDescricao(fraseOriginal, palavrasDescricao) {
+        const tokensOriginais = fraseOriginal.split(/\s+/);
+        const tokensNorm = tokensOriginais.map(t => normalize(t));
+        const setDescricao = new Set(palavrasDescricao);
+
+        let melhorTrecho = fraseOriginal;
+        let melhorScore = 0;
+        let melhorTamanho = tokensOriginais.length;
+
+        // Testa todas as janelas de tamanho crescente
+        for (let tamanho = 1; tamanho <= tokensOriginais.length; tamanho++) {
+            for (let inicio = 0; inicio + tamanho <= tokensOriginais.length; inicio++) {
+                const janelaNorm = tokensNorm.slice(inicio, inicio + tamanho);
+                const janelaOriginal = tokensOriginais.slice(inicio, inicio + tamanho);
+
+                const hits = janelaNorm.filter(t => setDescricao.has(removeStopwords(t))).length;
+                const score = hits / palavrasDescricao.length;
+
+                // Prefere maior cobertura; em empate, prefere janela menor
+                if (
+                    score > melhorScore ||
+                    (score === melhorScore && tamanho < melhorTamanho)
+                ) {
+                    melhorScore = score;
+                    melhorTamanho = tamanho;
+                    melhorTrecho = janelaOriginal.join(" ");
+                }
+            }
+        }
+
+        return melhorTrecho;
+    }
     extrair(frase) {
         const resultados = [];
         const encontrados = new Set();
@@ -155,7 +191,7 @@ class UnidadeGestoraService {
                 resultados.push({
                     codigo: unidade.codigo,
                     descricao: unidade.descricao,
-                    trecho_encontrado: frase
+                    trecho_encontrado: this._extrairTrechoDescricao(frase, palavras) // 👈 mudança
                 });
                 encontrados.add(unidade.codigo);
             }
