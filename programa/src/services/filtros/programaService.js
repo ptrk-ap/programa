@@ -3,7 +3,7 @@ const path = require("path");
 const caminhoCsv = path.join(__dirname, "..", "..", "data", "entidades", "programa.csv");
 const { resolverPercentualMinimo } = require("../../utils/sensibilidadeMatcher");
 
-const PERCENTUAL_PADRAO = 0.7;
+const PERCENTUAL_PADRAO = 0.9;
 
 // 🔥 Regra apenas para a palavra "programa"
 const REGRAS_SENSIBILIDADE = [
@@ -53,10 +53,14 @@ class ProgramaService {
     }
 
     extrair(frase) {
+
         const resultados = [];
         const encontrados = new Set();
 
         const textoNormalizado = normalize(frase);
+        if (!/\bprograma\b/.test(textoNormalizado)) {
+            return [];
+        }
         const temAcao = /\bacao\b/.test(textoNormalizado);
 
         // -------------------------------

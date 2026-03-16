@@ -72,6 +72,9 @@ class AcaoService {
         const encontrados = new Set();
 
         const textoNormalizado = normalize(frase);
+        if (!/\bacao\b/.test(textoNormalizado)) {
+            return [];
+        }
         const temPrograma = /\bprograma\b/.test(textoNormalizado);
 
         // -------------------------------

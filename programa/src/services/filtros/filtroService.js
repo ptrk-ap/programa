@@ -48,9 +48,23 @@ class FiltroService {
     }
 
     /**
+     * Grupos de entidades que devem ser processados em paralelo sobre o mesmo trecho.
+     * Todas as entidades dentro de um grupo recebem o trecho original simultaneamente,
+     * sem que uma remova do trecho o que a outra ainda precisa ler.
+     *
+     * Entidades fora destes grupos seguem o fluxo padrão em cascata.
+     */
+    static GRUPOS_PARALELOS = [
+        ["unidade_gestora", "unidade_orcamentaria"],
+    ];
+
+    /**
      * Analisa as partes da frase e retorna um objeto com os filtros encontrados.
-     * Utiliza Promise.all para processar todos os serviços e trechos em paralelo.
-     * * @param {string[]} partesFrase - Array gerado pelo SplitService.
+     * Entidades em GRUPOS_PARALELOS são processadas simultaneamente sobre o mesmo
+     * trecho; as demais seguem o fluxo cascata (cada serviço recebe o trecho já
+     * reduzido pelos anteriores).
+     *
+     * @param {string[]} partesFrase - Array gerado pelo SplitService.
      * @returns {Promise<Object>} - Objeto contendo os resultados filtrados.
      */
     async processarFiltros(partesFrase) {
@@ -60,18 +74,24 @@ class FiltroService {
             filtrosEncontrados[chave] = [];
         });
 
-        // Para cada pedaço da frase, processamos os serviços em sequência (Cascata)
+        // Monta um Set com todas as entidades que fazem parte de algum grupo paralelo,
+        // para excluí-las do loop cascata principal
+        const entidadesParalelas = new Set(FiltroService.GRUPOS_PARALELOS.flat());
+
         for (let trecho of partesFrase) {
 
-            // Percorre cada serviço para tentar extrair filtros do trecho atual
+            // ── 1. Processamento em CASCATA (serviços que não pertencem a grupos paralelos) ──
             for (const [entidade, service] of Object.entries(this.services)) {
-                try {
-                    // Se o trecho ficou vazio (tudo foi removido por serviços anteriores), pula
-                    if (!trecho || trecho.trim().length === 0) break;
+                // Entidades paralelas são tratadas separadamente; pula aqui
+                if (entidadesParalelas.has(entidade)) continue;
 
+                // Se o trecho ficou vazio (tudo foi removido por serviços anteriores), encerra
+                if (!trecho || trecho.trim().length === 0) break;
+
+                try {
                     let resultados;
                     if (entidade === "ordem_bancaria") {
-                        // Passamos o ano encontrado (ou o padrão) como referência para o DateService
+                        // Passa o ano encontrado (ou o padrão) como referência para o DateService
                         const anoFiltro = filtrosEncontrados.ano && filtrosEncontrados.ano.length > 0
                             ? filtrosEncontrados.ano[0].codigo
                             : this.services.ano.getAnoPadrao();
@@ -81,14 +101,11 @@ class FiltroService {
                     }
 
                     if (resultados && resultados.length > 0) {
-                        // Adiciona os resultados encontrados
                         filtrosEncontrados[entidade].push(...resultados);
 
-                        // Lógica de Cascata: Remove do trecho o que foi reconhecido
+                        // Lógica de cascata: remove do trecho o que foi reconhecido
                         resultados.forEach(res => {
                             if (res.trecho_encontrado) {
-                                // Cria regex global e case-insensitive para remover o fragmento
-                                // Escapa o trecho para evitar problemas com regex
                                 const trechoEscapado = res.trecho_encontrado.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
                                 const regex = new RegExp(trechoEscapado, "gi");
                                 trecho = trecho.replace(regex, " ").trim();
@@ -99,16 +116,50 @@ class FiltroService {
                     console.error(`Erro ao extrair [${entidade}] no trecho "${trecho}":`, error);
                 }
             }
+
+            // ── 2. Processamento em PARALELO (grupos declarados em GRUPOS_PARALELOS) ──
+            // Cada grupo recebe o mesmo trecho (já reduzido pelo bloco cascata acima).
+            // Dentro do grupo, todos os serviços rodam simultaneamente via Promise.all.
+            for (const grupo of FiltroService.GRUPOS_PARALELOS) {
+                if (!trecho || trecho.trim().length === 0) break;
+
+                // Dispara todos os serviços do grupo ao mesmo tempo sobre o mesmo trecho
+                const resultadosGrupo = await Promise.all(
+                    grupo.map(async entidade => {
+                        try {
+                            const resultados = await this.services[entidade].extrair(trecho);
+                            return { entidade, resultados: resultados ?? [] };
+                        } catch (error) {
+                            console.error(`Erro ao extrair [${entidade}] no trecho "${trecho}":`, error);
+                            return { entidade, resultados: [] };
+                        }
+                    })
+                );
+
+                // Consolida os resultados e aplica a remoção de cascata após o grupo inteiro ter rodado
+                for (const { entidade, resultados } of resultadosGrupo) {
+                    if (resultados.length > 0) {
+                        filtrosEncontrados[entidade].push(...resultados);
+
+                        resultados.forEach(res => {
+                            if (res.trecho_encontrado) {
+                                const trechoEscapado = res.trecho_encontrado.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+                                const regex = new RegExp(trechoEscapado, "gi");
+                                trecho = trecho.replace(regex, " ").trim();
+                            }
+                        });
+                    }
+                }
+            }
         }
 
-        // Remove duplicatas de objetos (caso o mesmo item seja encontrado em trechos diferentes) 
-        // e remove chaves que ficaram com arrays vazios
+        // Remove duplicatas e chaves com arrays vazios
         const resultadoFinal = {};
 
         for (const [entidade, lista] of Object.entries(filtrosEncontrados)) {
             if (lista.length > 0) {
-                // Filtra duplicatas baseadas no código (único para cada entidade)
-                // Se for 'periodo', não possui código, então mantemos todos (ou poderíamos filtrar por string exata)
+                // Filtra duplicatas pelo código (único por entidade).
+                // Para 'ordem_bancaria', que não possui código, mantém todos os itens.
                 const idsUnicos = new Set();
                 resultadoFinal[entidade] = lista.filter(item => {
                     if (entidade === "ordem_bancaria") return true;
