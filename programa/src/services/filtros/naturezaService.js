@@ -2,10 +2,12 @@ const fs = require("fs");
 const path = require("path");
 const caminhoCsv = path.join(__dirname, "..", "..", "data", "entidades", "natureza_despesa.csv");
 const { resolverPercentualMinimo } = require("../../utils/sensibilidadeMatcher");
+
 const PERCENTUAL_PADRAO = 0.5;
 const REGRAS_SENSIBILIDADE = [
     { palavra: "natureza_despesa", percentual: 0.4 }
 ];
+
 /**
  * Normaliza texto para comparação:
  * - lowercase
@@ -23,20 +25,42 @@ function normalize(text) {
 /**
  * Service responsável por:
  * - carregar o CSV de naturezas
- * - manter os dados em memória
+ * - manter os dados em memória com índice invertido
  * - extrair naturezas de despesa a partir de uma frase
  */
 class NaturezaService {
 
     constructor() {
-
         // Carrega o CSV uma única vez ao iniciar o serviço
         this.naturezas = this.carregarCsv(caminhoCsv);
 
-        // Cria um índice por código para busca rápida (O(1))
+        // Índice por código — O(1)
         this.mapaPorCodigo = new Map(
             this.naturezas.map(n => [n.codigo, n])
         );
+
+        // Índice invertido por token de descrição — evita loop O(N) na busca
+        // token → [natureza, ...]
+        // CRITÉRIO ESPECIAL: inclui token "nao" além de p.length > 3
+        this.indiceDescricao = new Map();
+
+        // Tokens pré-computados por natureza — usados para calcular o threshold
+        this.tokensPorNatureza = new Map();
+
+        for (const natureza of this.naturezas) {
+            const tokens = normalize(natureza.descricao)
+                .split(/\s+/)
+                .filter(p => p.length > 3 || p === "nao");
+
+            this.tokensPorNatureza.set(natureza.codigo, tokens);
+
+            for (const token of tokens) {
+                if (!this.indiceDescricao.has(token)) {
+                    this.indiceDescricao.set(token, []);
+                }
+                this.indiceDescricao.get(token).push(natureza);
+            }
+        }
     }
 
     /**
@@ -67,21 +91,49 @@ class NaturezaService {
     }
 
     /**
+     * Encontra o menor trecho contíguo da frase original que abrange
+     * as palavras-chave encontradas.
+     *
+     * Complexidade: O(N) — uma única passagem pelos tokens da frase.
+     */
+    _extrairTrechoDescricao(fraseOriginal, palavrasMatch) {
+        if (palavrasMatch.length === 0) return fraseOriginal;
+
+        const setMatch = new Set(palavrasMatch);
+        const tokensOriginais = fraseOriginal.split(/\s+/);
+
+        let inicio = -1;
+        let fim = -1;
+
+        for (let i = 0; i < tokensOriginais.length; i++) {
+            const tokenNorm = normalize(tokensOriginais[i]);
+
+            if (setMatch.has(tokenNorm)) {
+                if (inicio === -1) inicio = i;
+                fim = i;
+            }
+        }
+
+        if (inicio === -1) return fraseOriginal;
+
+        return tokensOriginais.slice(inicio, fim + 1).join(" ");
+    }
+
+    /**
      * Extrai naturezas de uma frase:
-     * 1. Busca códigos explícitos
-     * 2. Busca descrições (fallback com critério percentual)
-     * 3. Permite múltiplos resultados
+     * 1. Por código (regex especial \d{2}[1-9]\d{3}) — O(matches)
+     * 2. Por descrição                                 — O(tokens × hits) via índice invertido
      */
     extrair(frase) {
         const resultados = [];
-        const encontrados = new Set(); // evita duplicidade
+        const encontrados = new Set();
 
+        const textoNormalizado = normalize(frase);
 
-        // -------------------------------
-        // 1️⃣ BUSCA POR CÓDIGO
-        // -------------------------------
-
+        // ─────────────────────────────────────────
+        // 1️⃣  BUSCA POR CÓDIGO
         // Regex: 6 dígitos, com 3º dígito diferente de zero
+        // ─────────────────────────────────────────
         const codigos = frase.match(/\b\d{2}[1-9]\d{3}\b/g) || [];
 
         for (const codigo of codigos) {
@@ -97,47 +149,48 @@ class NaturezaService {
             }
         }
 
-        // -------------------------------
-        // 2️⃣ BUSCA POR DESCRIÇÃO
-        // -------------------------------
-
-        const textoNormalizado = normalize(frase);
+        // ─────────────────────────────────────────
+        // 2️⃣  BUSCA POR DESCRIÇÃO via índice invertido
+        // ─────────────────────────────────────────
         const percentualMinimo = resolverPercentualMinimo(
             textoNormalizado,
             PERCENTUAL_PADRAO,
             REGRAS_SENSIBILIDADE
         );
 
-        for (const natureza of this.naturezas) {
-            // Se já foi encontrada pelo código, ignora
-            if (encontrados.has(natureza.codigo)) continue;
+        // Conjunto de tokens relevantes (len > 3 ou "nao")
+        const tokensFrase = new Set(
+            textoNormalizado.split(/\s+/).filter(p => p.length > 3 || p === "nao")
+        );
 
-            // Divide a descrição em palavras relevantes
-            const palavras = normalize(natureza.descricao)
-                .split(" ")
-                .filter(p => p.length > 3 || p === "nao");
+        // Conta quantos tokens de cada natureza aparecem na frase
+        const contagem = new Map(); // codigo → número de hits
 
-            if (!palavras.length) continue;
+        for (const token of tokensFrase) {
+            const candidatos = this.indiceDescricao.get(token);
+            if (!candidatos) continue;
 
-            // Conta quantas palavras aparecem na frase
-            const matches = palavras.filter(p =>
-                textoNormalizado.includes(p)
-            );
+            for (const natureza of candidatos) {
+                if (encontrados.has(natureza.codigo)) continue;
+                contagem.set(natureza.codigo, (contagem.get(natureza.codigo) || 0) + 1);
+            }
+        }
 
-            // ✅ MESMO CRITÉRIO PERCENTUAL (≥ 60%)
-            const percentual = matches.length / palavras.length;
+        // Aplica threshold percentual
+        for (const [codigo, hits] of contagem) {
+            const palavrasTotais = this.tokensPorNatureza.get(codigo);
+            const percentual = hits / palavrasTotais.length;
 
             if (percentual >= percentualMinimo) {
-                // Para descrição, o "trecho encontrado" pode ser complexo. 
-                // Retornamos a frase original enviada para este service, 
-                // mas idealmente poderíamos tentar identificar o range das palavras.
-                // Como FiltroService vai remover esse trecho, usamos a frase inteira se der match substancial.
+                const natureza = this.mapaPorCodigo.get(codigo);
+                const matchedTokens = palavrasTotais.filter(p => tokensFrase.has(p));
+
                 resultados.push({
                     codigo: natureza.codigo,
                     descricao: natureza.descricao,
-                    trecho_encontrado: frase // Se deu match na descrição, consideramos o trecho todo
+                    trecho_encontrado: this._extrairTrechoDescricao(frase, matchedTokens)
                 });
-                encontrados.add(natureza.codigo);
+                encontrados.add(codigo);
             }
         }
 

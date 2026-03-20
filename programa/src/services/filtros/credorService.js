@@ -1,4 +1,4 @@
-const knex = require("../../database/connection");
+const pool = require("../../database/connection");
 const fs = require("fs");
 const path = require("path");
 
@@ -41,10 +41,13 @@ class CredorService {
         const numerosNaFrase = fraseNormalizada.match(/\b\d{11}\b|\b\d{14}\b/g) || [];
 
         if (numerosNaFrase.length > 0) {
-            const rows = await knex("credor")
-                .select("codigo", "descricao")
-                .whereIn("codigo", numerosNaFrase)
-                .limit(10);
+            const placeholders = numerosNaFrase.map(() => "?").join(", ");
+            const [rows] = await pool.execute(
+                `SELECT codigo, descricao FROM credor 
+                 WHERE codigo IN (${placeholders}) 
+                 LIMIT 10`,
+                numerosNaFrase
+            );
 
             if (rows.length > 0) {
                 return rows.map(r => ({
@@ -86,14 +89,18 @@ class CredorService {
              * Usamos LIKE com COLLATE para ignorar acentos do banco (ex: Camarão).
              * O AND garante que TODOS os termos (Delma, Carmo, Camarao) estejam na descrição.
              */
-            const rows = await knex("credor")
-                .select("codigo", "descricao")
-                .where(function() {
-                    termosParaBusca.forEach(t => {
-                        this.whereRaw("(descricao COLLATE utf8mb4_general_ci) LIKE ?", [`%${t}%`]);
-                    });
-                })
-                .limit(10);
+            const condicoes = termosParaBusca
+                .map(() => "(descricao COLLATE utf8mb4_general_ci) LIKE ?")
+                .join(" AND ");
+
+            const params = termosParaBusca.map(t => `%${t}%`);
+
+            const [rows] = await pool.execute(
+                `SELECT codigo, descricao FROM credor 
+                 WHERE ${condicoes} 
+                 LIMIT 10`,
+                params
+            );
 
             return rows.map(r => ({
                 codigo: r.codigo,

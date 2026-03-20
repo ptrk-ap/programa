@@ -27,11 +27,39 @@ function normalize(text) {
 class EmendaService {
 
     constructor() {
+        // Carrega CSV uma única vez
         this.emendas = this.carregarCsv(caminhoCsv);
+
+        // Índice por código normalizado — O(1)
+        this.mapaPorCodigo = new Map(
+            this.emendas.map(e => [normalize(e.codigo), e])
+        );
+
+        // Índice invertido por token de descrição — evita loop O(N) na busca
+        // token → [emenda, ...]
+        this.indiceDescricao = new Map();
+
+        // Tokens pré-computados por emenda — usados para calcular o threshold
+        // Filtro: p.length > 2 (critério original da emenda)
+        this.tokensPorEmenda = new Map();
+
+        for (const emenda of this.emendas) {
+            const tokens = normalize(emenda.descricao)
+                .split(/\s+/)
+                .filter(p => p.length > 2);
+
+            this.tokensPorEmenda.set(emenda.codigo, tokens);
+
+            for (const token of tokens) {
+                if (!this.indiceDescricao.has(token)) {
+                    this.indiceDescricao.set(token, []);
+                }
+                this.indiceDescricao.get(token).push(emenda);
+            }
+        }
     }
 
     carregarCsv(caminho) {
-
         const conteudo = fs.readFileSync(caminho, "utf8");
 
         return conteudo
@@ -39,7 +67,6 @@ class EmendaService {
             .filter(Boolean)
             .slice(1)
             .map(linha => {
-
                 const primeiraVirgula = linha.indexOf(",");
                 const codigo = linha.substring(0, primeiraVirgula);
                 const descricao = linha.substring(primeiraVirgula + 1);
@@ -57,8 +84,41 @@ class EmendaService {
             );
     }
 
-    extrair(frase) {
+    /**
+     * Encontra o menor trecho contíguo da frase original que abrange
+     * as palavras-chave encontradas.
+     *
+     * Complexidade: O(N) — uma única passagem pelos tokens da frase.
+     */
+    _extrairTrechoDescricao(fraseOriginal, palavrasMatch) {
+        if (palavrasMatch.length === 0) return fraseOriginal;
 
+        const setMatch = new Set(palavrasMatch);
+        const tokensOriginais = fraseOriginal.split(/\s+/);
+
+        let inicio = -1;
+        let fim = -1;
+
+        for (let i = 0; i < tokensOriginais.length; i++) {
+            const tokenNorm = normalize(tokensOriginais[i]);
+
+            if (setMatch.has(tokenNorm)) {
+                if (inicio === -1) inicio = i;
+                fim = i;
+            }
+        }
+
+        if (inicio === -1) return fraseOriginal;
+
+        return tokensOriginais.slice(inicio, fim + 1).join(" ");
+    }
+
+    /**
+     * Extrai emendas de uma frase:
+     * 1. Por código (CONDICIONAL) — O(tokens da frase)
+     * 2. Por descrição             — O(tokens × hits) via índice invertido
+     */
+    extrair(frase) {
         const resultados = [];
         const encontrados = new Set();
 
@@ -70,65 +130,66 @@ class EmendaService {
             REGRAS_SENSIBILIDADE
         );
 
+        // ─────────────────────────────────────────
+        // 1️⃣  BUSCA POR CÓDIGO (CONDICIONAL)
+        // ─────────────────────────────────────────
         // 🔐 Só permite busca por código se "emenda" estiver explícito
         const permiteCodigo = textoNormalizado.includes("emenda");
 
-        for (const emenda of this.emendas) {
+        if (permiteCodigo) {
+            const tokensFraseArr = textoNormalizado.split(/\s+/);
 
-            if (encontrados.has(emenda.codigo)) continue;
+            for (const token of tokensFraseArr) {
+                const emenda = this.mapaPorCodigo.get(token);
 
-            // ===============================
-            // 1️⃣ MATCH EXATO DE CÓDIGO
-            // ===============================
-            if (permiteCodigo) {
-
-                const codigoNormalizado = normalize(emenda.codigo);
-
-                // quebra a frase em tokens
-                const tokensFrase = textoNormalizado.split(/\s+/);
-
-                const codigoEncontrado = tokensFrase.some(token =>
-                    token === codigoNormalizado
-                );
-
-                if (codigoEncontrado) {
+                if (emenda && !encontrados.has(emenda.codigo)) {
                     resultados.push({
                         codigo: emenda.codigo,
                         descricao: emenda.descricao,
-                        trecho_encontrado: emenda.codigo // ou o token exato
+                        trecho_encontrado: emenda.codigo
                     });
-
                     encontrados.add(emenda.codigo);
-                    continue;
                 }
             }
+        }
 
-            // ===============================
-            // 2️⃣ MATCH POR DESCRIÇÃO
-            // ===============================
+        // ─────────────────────────────────────────
+        // 2️⃣  BUSCA POR DESCRIÇÃO via índice invertido
+        // ─────────────────────────────────────────
 
-            const palavras = normalize(emenda.descricao)
-                .split(" ")
-                .filter(p => p.length > 2);
+        // Conjunto de tokens relevantes da frase (len > 2)
+        const tokensFrase = new Set(
+            textoNormalizado.split(/\s+/).filter(p => p.length > 2)
+        );
 
-            if (!palavras.length) continue;
+        // Conta quantos tokens de cada emenda aparecem na frase
+        const contagem = new Map(); // codigo → número de hits
 
-            const matches = palavras.filter(p =>
-                textoNormalizado.includes(p)
-            );
+        for (const token of tokensFrase) {
+            const candidatos = this.indiceDescricao.get(token);
+            if (!candidatos) continue;
 
-            const percentualCalculado =
-                matches.length / palavras.length;
+            for (const emenda of candidatos) {
+                if (encontrados.has(emenda.codigo)) continue;
+                contagem.set(emenda.codigo, (contagem.get(emenda.codigo) || 0) + 1);
+            }
+        }
 
-            if (percentualCalculado >= percentualDescricao) {
+        // Aplica threshold percentual
+        for (const [codigo, hits] of contagem) {
+            const palavrasTotais = this.tokensPorEmenda.get(codigo);
+            const percentual = hits / palavrasTotais.length;
+
+            if (percentual >= percentualDescricao) {
+                const emenda = this.emendas.find(e => e.codigo === codigo);
+                const matchedTokens = palavrasTotais.filter(p => tokensFrase.has(p));
 
                 resultados.push({
                     codigo: emenda.codigo,
                     descricao: emenda.descricao,
-                    trecho_encontrado: frase
+                    trecho_encontrado: this._extrairTrechoDescricao(frase, matchedTokens)
                 });
-
-                encontrados.add(emenda.codigo);
+                encontrados.add(codigo);
             }
         }
 

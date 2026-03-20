@@ -35,7 +35,7 @@ class PeriodoService {
     extrair(frase, anoReferencia) {
         if (!frase || !this._deveAtivar(frase)) return [];
 
-        const hoje = new Date(2026, 1, 25);
+        const hoje = new Date();
         const anoAtual = anoReferencia || hoje.getFullYear();
 
         // Ano isolado limitado a 2020-2035; palavra "acao" antes bloqueia captura
@@ -140,11 +140,12 @@ class PeriodoService {
         let mesesDuracao = 1;
         let anoExplicito = false;
 
-        // Ano isolado — apenas 4 dígitos e entre 2020-2035
+        const anoAtualSistema = hoje.getFullYear();
+        // Ano isolado — apenas 4 dígitos e entre 2024 e o ano atual
         const matchAnoIsolado = str.match(/^\d{4}$/);
         if (matchAnoIsolado) {
             ano = parseInt(matchAnoIsolado[0]);
-            if (ano < 2020 || ano > 2035) return null;
+            if (ano < 2024 || ano > anoAtualSistema) return null;
             return {
                 inicio: new Date(ano, 0, 1),
                 fim: new Date(ano, 11, 31),
@@ -198,17 +199,17 @@ class PeriodoService {
             }
         }
 
-        // Ano inline — apenas 4 dígitos e entre 2020-2035
+        // Ano inline — apenas 4 dígitos e entre 2024 e o ano atual
         const matchAno = str.match(/\b(20\d{2})\b/);
         if (matchAno) {
             ano = parseInt(matchAno[1]);
-            if (ano < 2020 || ano > 2035) return null;
+            if (ano < 2024 || ano > anoAtualSistema) return null;
             anoExplicito = true;
         }
 
         if (mes === -1) return null;
 
-        if (!anoExplicito && !anoReferencia) {
+        if (!anoExplicito) {
             const dataTeste = new Date(ano, mes, dia);
             if (dataTeste > hoje) ano -= 1;
         }

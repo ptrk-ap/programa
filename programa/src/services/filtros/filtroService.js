@@ -74,56 +74,33 @@ class FiltroService {
             filtrosEncontrados[chave] = [];
         });
 
+        // 1. Extrai o "ano" de toda a frase primeiro (evita dessincronização cronológica)
+        const fraseCompleta = partesFrase.join(" ");
+        try {
+            const anosEncontrados = await this.services.ano.extrair(fraseCompleta);
+            if (anosEncontrados && anosEncontrados.length > 0) {
+                filtrosEncontrados.ano.push(...anosEncontrados);
+            }
+        } catch (error) {
+            console.error("Erro ao extrair [ano] da frase completa:", error);
+        }
+        
+        // Define o ano base para a extração de ordem bancária
+        const anoFiltro = filtrosEncontrados.ano.length > 0
+            ? filtrosEncontrados.ano[0].codigo
+            : this.services.ano.getAnoPadrao();
+
         // Monta um Set com todas as entidades que fazem parte de algum grupo paralelo,
-        // para excluí-las do loop cascata principal
-        const entidadesParalelas = new Set(FiltroService.GRUPOS_PARALELOS.flat());
+        // para excluí-las do loop cascata principal (e também remover o 'ano' que já rodou)
+        const entidadesParalelasEAno = new Set([...FiltroService.GRUPOS_PARALELOS.flat(), "ano"]);
 
         for (let trecho of partesFrase) {
 
-            // ── 1. Processamento em CASCATA (serviços que não pertencem a grupos paralelos) ──
-            for (const [entidade, service] of Object.entries(this.services)) {
-                // Entidades paralelas são tratadas separadamente; pula aqui
-                if (entidadesParalelas.has(entidade)) continue;
-
-                // Se o trecho ficou vazio (tudo foi removido por serviços anteriores), encerra
-                if (!trecho || trecho.trim().length === 0) break;
-
-                try {
-                    let resultados;
-                    if (entidade === "ordem_bancaria") {
-                        // Passa o ano encontrado (ou o padrão) como referência para o DateService
-                        const anoFiltro = filtrosEncontrados.ano && filtrosEncontrados.ano.length > 0
-                            ? filtrosEncontrados.ano[0].codigo
-                            : this.services.ano.getAnoPadrao();
-                        resultados = await service.extrair(trecho, anoFiltro);
-                    } else {
-                        resultados = await service.extrair(trecho);
-                    }
-
-                    if (resultados && resultados.length > 0) {
-                        filtrosEncontrados[entidade].push(...resultados);
-
-                        // Lógica de cascata: remove do trecho o que foi reconhecido
-                        resultados.forEach(res => {
-                            if (res.trecho_encontrado) {
-                                const trechoEscapado = res.trecho_encontrado.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-                                const regex = new RegExp(trechoEscapado, "gi");
-                                trecho = trecho.replace(regex, " ").trim();
-                            }
-                        });
-                    }
-                } catch (error) {
-                    console.error(`Erro ao extrair [${entidade}] no trecho "${trecho}":`, error);
-                }
-            }
-
-            // ── 2. Processamento em PARALELO (grupos declarados em GRUPOS_PARALELOS) ──
-            // Cada grupo recebe o mesmo trecho (já reduzido pelo bloco cascata acima).
-            // Dentro do grupo, todos os serviços rodam simultaneamente via Promise.all.
+            // ── 2. Processamento em PARALELO Primeiro (Prioridade Máxima) ──
+            // UG e UO recebem a frase intocada primeiro
             for (const grupo of FiltroService.GRUPOS_PARALELOS) {
                 if (!trecho || trecho.trim().length === 0) break;
 
-                // Dispara todos os serviços do grupo ao mesmo tempo sobre o mesmo trecho
                 const resultadosGrupo = await Promise.all(
                     grupo.map(async entidade => {
                         try {
@@ -136,19 +113,57 @@ class FiltroService {
                     })
                 );
 
-                // Consolida os resultados e aplica a remoção de cascata após o grupo inteiro ter rodado
                 for (const { entidade, resultados } of resultadosGrupo) {
                     if (resultados.length > 0) {
                         filtrosEncontrados[entidade].push(...resultados);
 
                         resultados.forEach(res => {
                             if (res.trecho_encontrado) {
-                                const trechoEscapado = res.trecho_encontrado.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+                                // Escapa caracteres especiais mas converte os espaços literais em \s+
+                                // para suportar múltiplos espaços acidentais na frase original
+                                let trechoEscapado = res.trecho_encontrado
+                                    .replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); // Escape normal
+                                trechoEscapado = trechoEscapado.replace(/\s+/g, "\\s+"); // Converte literal space em \s+ regex
+                                
                                 const regex = new RegExp(trechoEscapado, "gi");
                                 trecho = trecho.replace(regex, " ").trim();
                             }
                         });
                     }
+                }
+            }
+
+            // ── 3. Processamento em CASCATA (serviços com menor prioridade) ──
+            for (const [entidade, service] of Object.entries(this.services)) {
+                // Entidades paralelas e Ano já foram tratadas; pula aqui
+                if (entidadesParalelasEAno.has(entidade)) continue;
+
+                if (!trecho || trecho.trim().length === 0) break;
+
+                try {
+                    let resultados;
+                    if (entidade === "ordem_bancaria") {
+                        resultados = await service.extrair(trecho, anoFiltro);
+                    } else {
+                        resultados = await service.extrair(trecho);
+                    }
+
+                    if (resultados && resultados.length > 0) {
+                        filtrosEncontrados[entidade].push(...resultados);
+
+                        resultados.forEach(res => {
+                            if (res.trecho_encontrado) {
+                                let trechoEscapado = res.trecho_encontrado
+                                    .replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+                                trechoEscapado = trechoEscapado.replace(/\s+/g, "\\s+");
+                                
+                                const regex = new RegExp(trechoEscapado, "gi");
+                                trecho = trecho.replace(regex, " ").trim();
+                            }
+                        });
+                    }
+                } catch (error) {
+                    console.error(`Erro ao extrair [${entidade}] no trecho "${trecho}":`, error);
                 }
             }
         }
@@ -158,11 +173,14 @@ class FiltroService {
 
         for (const [entidade, lista] of Object.entries(filtrosEncontrados)) {
             if (lista.length > 0) {
-                // Filtra duplicatas pelo código (único por entidade).
-                // Para 'ordem_bancaria', que não possui código, mantém todos os itens.
                 const idsUnicos = new Set();
                 resultadoFinal[entidade] = lista.filter(item => {
-                    if (entidade === "ordem_bancaria") return true;
+                    if (entidade === "ordem_bancaria") {
+                        const chave = `${item.data_inicio}_${item.data_fim}`;
+                        if (idsUnicos.has(chave)) return false;
+                        idsUnicos.add(chave);
+                        return true;
+                    }
                     if (idsUnicos.has(item.codigo)) return false;
                     idsUnicos.add(item.codigo);
                     return true;

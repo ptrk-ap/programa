@@ -39,13 +39,13 @@ async function consulta(req, res, next) {
         const filtros = await filtroService.processarFiltros(divisor);
         console.log(filtros);
 
-        // Extrai o ano para a query
-        const anoQuery = filtros.ano && filtros.ano.length > 0
-            ? filtros.ano[0].codigo
-            : 2026;
+        // Extrai os anos para a query eliminando duplicados
+        const anosQuery = filtros.ano && filtros.ano.length > 0
+            ? [...new Set(filtros.ano.map(a => a.codigo))]
+            : [filtroService.services.ano.getAnoPadrao()];
 
-        // Monta a query
-        const { sql, params } = queryService.buildQuery(parametrosEncontrados, filtros, anoQuery);
+        // Monta a query multi-ano
+        const { sql, params } = queryService.buildQuery(parametrosEncontrados, filtros, anosQuery);
         //console.log(sql, params);
 
         //executar conulta sql
@@ -53,10 +53,17 @@ async function consulta(req, res, next) {
 
         //formatar resultado para reais
         const resultadoFormatado = FormatterService.formatarResultado(rows);
+
+        let periodosTexto = [];
         if (filtros.ordem_bancaria && filtros.ordem_bancaria.length > 0) {
-            aux = filtros.ordem_bancaria;
-            console.log(filtros.ordem_bancaria);
+            periodosTexto = filtros.ordem_bancaria.map(ob => `${ob.data_inicio} a ${ob.data_fim}`);
+        } else {
+            // Formatação mais legível para os anos completos
+            periodosTexto = anosQuery.map(a => `Exercício de ${a}`);
         }
+
+        aux = `Valores correspondentes ao período: ${periodosTexto.join(', ')}`;
+
         const resposta = {
             mensagem: aux,
             resultado: resultadoFormatado

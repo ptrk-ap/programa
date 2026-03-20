@@ -1,19 +1,31 @@
 const fs = require("fs");
-
 const path = require("path");
 const caminhoCsv = path.join(__dirname, "..", "..", "data", "entidades", "convenio_receita.csv");
 
+/**
+ * Service responsável por:
+ * - carregar o CSV de convênios de receita em memória
+ * - extrair convênios a partir de uma frase
+ *
+ * ESTRATÉGIA: puramente por código (6 dígitos exatos).
+ * Já otimizado: Map O(1) + trigger "convenio_receita".
+ */
 class ConvenioReceitaService {
 
     constructor() {
+        // Carrega CSV uma única vez
         this.convenios = this.carregarCsv(caminhoCsv);
 
-        // Índice rápido por código
+        // Índice rápido por código — O(1)
         this.mapaPorCodigo = new Map(
             this.convenios.map(c => [c.codigo, c])
         );
     }
 
+    /**
+     * Lê o CSV e transforma em objetos.
+     * Suporta descrições com vírgulas internas.
+     */
     carregarCsv(caminho) {
         const conteudo = fs.readFileSync(caminho, "utf8");
 
@@ -36,14 +48,19 @@ class ConvenioReceitaService {
             .filter(Boolean);
     }
 
+    /**
+     * Extrai convênios de receita de uma frase.
+     *
+     * 🔎 Só executa se contiver exatamente "convenio_receita".
+     * 🔐 Captura exatamente 6 dígitos.
+     *
+     * Complexidade: O(matches) — busca direta no Map.
+     */
     extrair(frase) {
-
         if (!frase) return [];
 
-        // 🔎 Só executa se contiver exatamente "convenio_receita"
-        if (!frase.includes("convenio_receita")) {
-            return [];
-        }
+        // Trigger obrigatório
+        if (!frase.includes("convenio_receita")) return [];
 
         const resultados = [];
         const encontrados = new Set();
@@ -55,7 +72,11 @@ class ConvenioReceitaService {
             const convenio = this.mapaPorCodigo.get(codigo);
 
             if (convenio && !encontrados.has(codigo)) {
-                resultados.push(convenio);
+                resultados.push({
+                    codigo: convenio.codigo,
+                    descricao: convenio.descricao,
+                    trecho_encontrado: codigo
+                });
                 encontrados.add(codigo);
             }
         }

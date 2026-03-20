@@ -2,6 +2,8 @@ const fs = require("fs");
 const path = require("path");
 const caminhoCsv = path.join(__dirname, "..", "..", "data", "entidades", "elemento.csv");
 
+const PERCENTUAL_PADRAO = 0.7;
+
 /**
  * Normaliza texto para comparação:
  * - lowercase
@@ -19,23 +21,44 @@ function normalize(text) {
 /**
  * Service responsável por:
  * - carregar o CSV de elementos de despesa
- * - manter os dados em memória
+ * - manter os dados em memória com índice invertido
  * - extrair elementos de despesa a partir de uma frase
  *
  * REGRA ESPECIAL:
- * - só permite busca por CÓDIGO se a frase contiver "elemento_despesa"
+ * - só permite busca por CÓDIGO se a frase contiver "elemento"
  */
 class ElementoService {
 
     constructor() {
-
         // Carrega o CSV uma única vez ao iniciar o serviço
         this.elementos = this.carregarCsv(caminhoCsv);
 
-        // Cria um índice por código para busca rápida (O(1))
+        // Índice por código — O(1)
         this.mapaPorCodigo = new Map(
             this.elementos.map(e => [e.codigo, e])
         );
+
+        // Índice invertido por token de descrição — evita loop O(N) na busca
+        // token → [elemento, ...]
+        this.indiceDescricao = new Map();
+
+        // Tokens pré-computados por elemento — usados para calcular o threshold
+        this.tokensPorElemento = new Map();
+
+        for (const elemento of this.elementos) {
+            const tokens = normalize(elemento.descricao)
+                .split(/\s+/)
+                .filter(p => p.length > 3);
+
+            this.tokensPorElemento.set(elemento.codigo, tokens);
+
+            for (const token of tokens) {
+                if (!this.indiceDescricao.has(token)) {
+                    this.indiceDescricao.set(token, []);
+                }
+                this.indiceDescricao.get(token).push(elemento);
+            }
+        }
     }
 
     /**
@@ -66,26 +89,53 @@ class ElementoService {
     }
 
     /**
+     * Encontra o menor trecho contíguo da frase original que abrange
+     * as palavras-chave encontradas.
+     *
+     * Complexidade: O(N) — uma única passagem pelos tokens da frase.
+     */
+    _extrairTrechoDescricao(fraseOriginal, palavrasMatch) {
+        if (palavrasMatch.length === 0) return fraseOriginal;
+
+        const setMatch = new Set(palavrasMatch);
+        const tokensOriginais = fraseOriginal.split(/\s+/);
+
+        let inicio = -1;
+        let fim = -1;
+
+        for (let i = 0; i < tokensOriginais.length; i++) {
+            const tokenNorm = normalize(tokensOriginais[i]);
+
+            if (setMatch.has(tokenNorm)) {
+                if (inicio === -1) inicio = i;
+                fim = i;
+            }
+        }
+
+        if (inicio === -1) return fraseOriginal;
+
+        return tokensOriginais.slice(inicio, fim + 1).join(" ");
+    }
+
+    /**
      * Extrai elementos de despesa de uma frase:
-     * 1. Busca por código (CONDICIONAL)
-     * 2. Busca por descrição (fallback)
-     * 3. Permite múltiplos resultados
+     * 1. Por código (CONDICIONAL) — O(matches)
+     * 2. Por descrição             — O(tokens × hits) via índice invertido
      */
     extrair(frase) {
         const resultados = [];
-        const encontrados = new Set(); // evita duplicidade
+        const encontrados = new Set();
 
         const textoNormalizado = normalize(frase);
 
-        // -------------------------------
+        // ─────────────────────────────────────────
         // 🔐 REGRA: permite busca por código?
-        // -------------------------------
-        const permiteBuscaPorCodigo =
-            textoNormalizado.includes("elemento");
+        // ─────────────────────────────────────────
+        const permiteBuscaPorCodigo = textoNormalizado.includes("elemento");
 
-        // -------------------------------
-        // 1️⃣ BUSCA POR CÓDIGO (CONDICIONAL)
-        // -------------------------------
+        // ─────────────────────────────────────────
+        // 1️⃣  BUSCA POR CÓDIGO (CONDICIONAL)
+        // ─────────────────────────────────────────
         if (permiteBuscaPorCodigo) {
             // Aceita SOMENTE dois dígitos isolados (ex: "05")
             const codigos = frase.match(/\b\d{2}\b/g) || [];
@@ -104,33 +154,43 @@ class ElementoService {
             }
         }
 
-        // -------------------------------
-        // 2️⃣ BUSCA POR DESCRIÇÃO
-        // -------------------------------
+        // ─────────────────────────────────────────
+        // 2️⃣  BUSCA POR DESCRIÇÃO via índice invertido
+        // ─────────────────────────────────────────
 
-        for (const elemento of this.elementos) {
-            // Se já foi encontrado pelo código, ignora
-            if (encontrados.has(elemento.codigo)) continue;
+        // Conjunto de tokens relevantes da frase (len > 3)
+        const tokensFrase = new Set(
+            textoNormalizado.split(/\s+/).filter(p => p.length > 3)
+        );
 
-            const palavras = normalize(elemento.descricao)
-                .split(" ")
-                .filter(p => p.length > 3);
+        // Conta quantos tokens de cada elemento aparecem na frase
+        const contagem = new Map(); // codigo → número de hits
 
-            if (!palavras.length) continue;
+        for (const token of tokensFrase) {
+            const candidatos = this.indiceDescricao.get(token);
+            if (!candidatos) continue;
 
-            const matches = palavras.filter(p =>
-                textoNormalizado.includes(p)
-            );
+            for (const elemento of candidatos) {
+                if (encontrados.has(elemento.codigo)) continue;
+                contagem.set(elemento.codigo, (contagem.get(elemento.codigo) || 0) + 1);
+            }
+        }
 
-            const percentual = matches.length / palavras.length;
+        // Aplica threshold de 70%
+        for (const [codigo, hits] of contagem) {
+            const palavrasTotais = this.tokensPorElemento.get(codigo);
+            const percentual = hits / palavrasTotais.length;
 
-            if (percentual >= 0.7) {
+            if (percentual >= PERCENTUAL_PADRAO) {
+                const elemento = this.mapaPorCodigo.get(codigo);
+                const matchedTokens = palavrasTotais.filter(p => tokensFrase.has(p));
+
                 resultados.push({
                     codigo: elemento.codigo,
                     descricao: elemento.descricao,
-                    trecho_encontrado: frase
+                    trecho_encontrado: this._extrairTrechoDescricao(frase, matchedTokens)
                 });
-                encontrados.add(elemento.codigo);
+                encontrados.add(codigo);
             }
         }
 

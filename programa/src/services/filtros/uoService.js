@@ -10,6 +10,8 @@ const STOPWORDS = new Set([
     "estadual"
 ]);
 
+const PERCENTUAL_PADRAO = 0.6;
+
 /**
  * Normaliza texto para comparação:
  * - lowercase
@@ -39,14 +41,35 @@ function removeStopwords(text) {
 class UnidadeOrcamentariaService {
 
     constructor() {
-
         // Carrega CSV uma única vez
         this.unidades = this.carregarCsv(caminhoCsv);
 
-        // Índice por código (O(1))
+        // Índice por código — O(1)
         this.mapaPorCodigo = new Map(
             this.unidades.map(u => [u.codigo, u])
         );
+
+        // Índice invertido por token de descrição — evita loop O(N) na busca
+        // token → [unidade, ...]
+        this.indiceDescricao = new Map();
+
+        // Tokens pré-computados por unidade — usados para calcular o threshold
+        this.tokensPorUnidade = new Map();
+
+        for (const unidade of this.unidades) {
+            const tokens = removeStopwords(normalize(unidade.descricao))
+                .split(/\s+/)
+                .filter(p => p.length > 3);
+
+            this.tokensPorUnidade.set(unidade.codigo, tokens);
+
+            for (const token of tokens) {
+                if (!this.indiceDescricao.has(token)) {
+                    this.indiceDescricao.set(token, []);
+                }
+                this.indiceDescricao.get(token).push(unidade);
+            }
+        }
     }
 
     /**
@@ -75,9 +98,38 @@ class UnidadeOrcamentariaService {
     }
 
     /**
+     * Encontra o menor trecho contíguo da frase original que abrange
+     * as palavras-chave encontradas.
+     *
+     * Complexidade: O(N) — uma única passagem pelos tokens da frase.
+     */
+    _extrairTrechoDescricao(fraseOriginal, palavrasMatch) {
+        if (palavrasMatch.length === 0) return fraseOriginal;
+
+        const setMatch = new Set(palavrasMatch);
+        const tokensOriginais = fraseOriginal.split(/\s+/);
+
+        let inicio = -1;
+        let fim = -1;
+
+        for (let i = 0; i < tokensOriginais.length; i++) {
+            const tokenNorm = normalize(tokensOriginais[i]);
+
+            if (setMatch.has(tokenNorm)) {
+                if (inicio === -1) inicio = i;
+                fim = i;
+            }
+        }
+
+        if (inicio === -1) return fraseOriginal;
+
+        return tokensOriginais.slice(inicio, fim + 1).join(" ");
+    }
+
+    /**
      * Extrai unidades orçamentárias de uma frase:
-     * 1. Código (5 dígitos)
-     * 2. Descrição (fallback)
+     * 1. Por código (5 dígitos) — O(matches)
+     * 2. Por descrição           — O(tokens × hits) via índice invertido
      */
     extrair(frase) {
         const resultados = [];
@@ -86,10 +138,9 @@ class UnidadeOrcamentariaService {
         // 🔥 Remove stopwords também da frase digitada
         const textoNormalizado = removeStopwords(normalize(frase));
 
-        // -------------------------------
-        // 1️⃣ BUSCA POR CÓDIGO
-        // -------------------------------
-
+        // ─────────────────────────────────────────
+        // 1️⃣  BUSCA POR CÓDIGO
+        // ─────────────────────────────────────────
         const codigos = frase.match(/\b\d{5}\b/g) || [];
 
         for (const codigo of codigos) {
@@ -105,32 +156,43 @@ class UnidadeOrcamentariaService {
             }
         }
 
-        // -------------------------------
-        // 2️⃣ BUSCA POR DESCRIÇÃO
-        // -------------------------------
+        // ─────────────────────────────────────────
+        // 2️⃣  BUSCA POR DESCRIÇÃO via índice invertido
+        // ─────────────────────────────────────────
 
-        for (const unidade of this.unidades) {
-            if (encontrados.has(unidade.codigo)) continue;
+        // Conjunto de tokens relevantes da frase (len > 3)
+        const tokensFrase = new Set(
+            textoNormalizado.split(/\s+/).filter(p => p.length > 3)
+        );
 
-            const palavras = removeStopwords(normalize(unidade.descricao))
-                .split(/\s+/)
-                .filter(p => p.length > 3);
+        // Conta quantos tokens de cada unidade aparecem na frase
+        const contagem = new Map(); // codigo → número de hits
 
-            if (!palavras.length) continue;
+        for (const token of tokensFrase) {
+            const candidatos = this.indiceDescricao.get(token);
+            if (!candidatos) continue;
 
-            const matches = palavras.filter(p =>
-                textoNormalizado.includes(p)
-            );
+            for (const unidade of candidatos) {
+                if (encontrados.has(unidade.codigo)) continue;
+                contagem.set(unidade.codigo, (contagem.get(unidade.codigo) || 0) + 1);
+            }
+        }
 
-            const percentual = matches.length / palavras.length;
+        // Aplica threshold de 60%
+        for (const [codigo, hits] of contagem) {
+            const palavrasTotais = this.tokensPorUnidade.get(codigo);
+            const percentual = hits / palavrasTotais.length;
 
-            if (percentual >= 0.6) {
+            if (percentual >= PERCENTUAL_PADRAO) {
+                const unidade = this.mapaPorCodigo.get(codigo);
+                const matchedTokens = palavrasTotais.filter(p => tokensFrase.has(p));
+
                 resultados.push({
                     codigo: unidade.codigo,
                     descricao: unidade.descricao,
-                    trecho_encontrado: frase
+                    trecho_encontrado: this._extrairTrechoDescricao(frase, matchedTokens)
                 });
-                encontrados.add(unidade.codigo);
+                encontrados.add(codigo);
             }
         }
 

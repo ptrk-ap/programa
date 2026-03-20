@@ -4,8 +4,8 @@ const { processFiltros, separateFiltros } = require("./FilterProcessor");
 const { buildSelectAndGroupBy, buildWhere, buildOrderBy } = require("./QueryBuilder");
 
 class QueryService {
-    buildQuery(camposSolicitados = [], filtrosEncontrados = {}, ano = 2026) {
-        const tableName = `\`execucao${ano}\``;
+    buildQuery(camposSolicitados = [], filtrosEncontrados = {}, anos = [2026]) {
+        if (!Array.isArray(anos)) anos = [anos];
 
         // 1. Validação dos campos solicitados
         validateFields(camposSolicitados);
@@ -31,20 +31,51 @@ class QueryService {
 
         // 5. Montagem das cláusulas SQL
         const { selectParts, groupByParts } = buildSelectAndGroupBy(entidadesFinais, valoresSolicitados);
-        const { whereClause, params }        = buildWhere(hierarquicos, independentes, filtrosEncontrados);
-        const orderClause                    = buildOrderBy(entidadesFinais, selectParts);
+        const { whereClause, params: baseParams } = buildWhere(hierarquicos, independentes, filtrosEncontrados);
+        const orderClause = buildOrderBy(entidadesFinais, selectParts);
 
-        // 6. SQL final
+        // 5.1 Prepara listagem bruta para as subqueries do formato UNION
+        const rawColumns = new Set();
+        for (const entidade of entidadesFinais) {
+            if (entidade === "agrupamento_mensal") {
+                rawColumns.add("ordem_bancaria");
+            } else {
+                rawColumns.add(entidade);
+            }
+        }
+        for (const val of valoresSolicitados) {
+            rawColumns.add(val);
+        }
+        
+        // Se a query for apenas COUNT ou similar e não tiver columns, garantimos um literal
+        const rawSelectList = rawColumns.size > 0 
+            ? Array.from(rawColumns).map(c => `\`${c}\``).join(", ")
+            : "1 AS dummy";
+
+        // 5.2 Monta o UNION iterando os anos
+        const unionQueries = [];
+        const finalParams = [];
+
+        for (const anoLoop of anos) {
+            const tempTable = `\`execucao${anoLoop}\``;
+            unionQueries.push(`SELECT ${rawSelectList} FROM ${tempTable} ${whereClause}`);
+            finalParams.push(...baseParams);
+        }
+
+        const joinedUnions = unionQueries.join("\n                UNION ALL\n                ");
+
+        // 6. SQL final: Aplica agregação GROUP e ORDER sobre a tabela unida resultante.
         const sql = `
             SELECT ${selectParts.join(", ")}
-            FROM ${tableName}
-            ${whereClause}
-            GROUP BY ${groupByParts.join(", ")}
+            FROM (
+                ${joinedUnions}
+            ) AS base
+            ${groupByParts.length > 0 ? `GROUP BY ${groupByParts.join(", ")}` : ""}
             ${orderClause}
             LIMIT 100
         `.trim().replace(/\s+/g, ' ');
 
-        return { sql, params };
+        return { sql, params: finalParams };
     }
 }
 
