@@ -148,7 +148,13 @@ class OrcamentoService {
                 "fornecedor",
                 "fornecedores",
                 "credora",
-                "fornecedora"
+                "fornecedora",
+                "empresa",
+                "empresas",
+                "servidor",
+                "servidora",
+                "servidores",
+                "servidoras"
             ],
 
 
@@ -206,7 +212,8 @@ class OrcamentoService {
                 "mes a mes",
                 "por mes",
                 "cada mes",
-                "mensalmente"
+                "mensalmente",
+                "mensal"
             ]
         };
 

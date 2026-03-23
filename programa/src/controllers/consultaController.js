@@ -21,9 +21,7 @@ async function consulta(req, res, next) {
         });
     }
 
-
     try {
-
         //traduzir especificos para termos do banco: unidade gestora -> unidade_gestora
         const fraseProcessada = OrcamentoService.traduzirParaTermosSql(consultaFrase);
 
@@ -34,6 +32,7 @@ async function consulta(req, res, next) {
 
         //quebra a frase em pedaços usando os termos do banco como marcador
         const divisor = Splitservice.quebrarFrase(fraseProcessada);
+        console.log("divisor: " + divisor);
 
         // Procura filtros nos pedaços
         const filtros = await filtroService.processarFiltros(divisor);

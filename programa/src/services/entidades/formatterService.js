@@ -30,6 +30,32 @@ class FormatterService {
     }
 
     /**
+     * Formata o campo credor:
+     * - CNPJ (14 dígitos): mantém o número + descrição
+     * - CPF  (11 dígitos): omite o número, exibe só a descrição
+     * @param {string} credor  Ex: "72624679000109 - LOGUS SISTEMAS..."
+     * @returns {string}
+     */
+    static formatarCredor(credor) {
+        if (!credor || typeof credor !== "string") return credor;
+
+        // Espera o padrão "NUMERO - DESCRICAO"
+        const match = credor.match(/^(\d+)\s*-\s*(.+)$/);
+        if (!match) return credor;
+
+        const [, documento, descricao] = match;
+        const digits = documento.replace(/\D/g, "");
+
+        // CPF = 11 dígitos → omite o número
+        if (digits.length === 11) {
+            return descricao.trim();
+        }
+
+        // CNPJ = 14 dígitos (ou qualquer outro caso) → mantém como está
+        return credor;
+    }
+
+    /**
      * Formata automaticamente todos os campos de valor presentes
      * no resultado SQL
      * @param {Array<Object>} rows
@@ -42,6 +68,10 @@ class FormatterService {
                 if (campo in novo) {
                     novo[campo] = FormatterService.toReal(novo[campo]);
                 }
+            }
+
+            if ("credor" in novo) {
+                novo["credor"] = FormatterService.formatarCredor(novo["credor"]);
             }
 
             return novo;

@@ -16,7 +16,7 @@ const EmendaService = require("./emendaService");
 const ContratoService = require("./contratoService");
 const ConvenioDespesaService = require("./conveniodespesaService");
 const ConvenioReceitaService = require("./convenioreceitaService");
-const CredorService = require("./credorService"); // Novo serviço assíncrono
+const CredorService = require("./credorService");
 const PeriodoService = require("./dateService");
 const AnoService = require("./anoService");
 
@@ -43,7 +43,7 @@ class FiltroService {
             contrato: new ContratoService(),
             convenio_despesa: new ConvenioDespesaService(),
             convenio_receita: new ConvenioReceitaService(),
-            credor: new CredorService() // Adicionado à lista de serviços
+            credor: new CredorService()
         };
     }
 
@@ -64,10 +64,13 @@ class FiltroService {
      * trecho; as demais seguem o fluxo cascata (cada serviço recebe o trecho já
      * reduzido pelos anteriores).
      *
-     * @param {string[]} partesFrase - Array gerado pelo SplitService.
+     * @param {string[]} partesFraseOriginal - Array gerado pelo SplitService.
      * @returns {Promise<Object>} - Objeto contendo os resultados filtrados.
      */
-    async processarFiltros(partesFrase) {
+    async processarFiltros(partesFraseOriginal) {
+        // Cópia mutável para não alterar o array original recebido como parâmetro
+        let partesFrase = [...partesFraseOriginal];
+
         // Inicializa o objeto de resultados baseado nas chaves dos serviços
         const filtrosEncontrados = {};
         Object.keys(this.services).forEach(chave => {
@@ -80,11 +83,25 @@ class FiltroService {
             const anosEncontrados = await this.services.ano.extrair(fraseCompleta);
             if (anosEncontrados && anosEncontrados.length > 0) {
                 filtrosEncontrados.ano.push(...anosEncontrados);
+
+                // Remove o trecho do ano de cada parte do array — mesmo padrão dos outros serviços
+                anosEncontrados.forEach(res => {
+                    if (res.trecho_encontrado) {
+                        let trechoEscapado = res.trecho_encontrado
+                            .replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+                        trechoEscapado = trechoEscapado.replace(/\s+/g, "\\s+");
+                        const regex = new RegExp(trechoEscapado, "gi");
+
+                        partesFrase = partesFrase.map(parte =>
+                            parte.replace(regex, " ").trim()
+                        );
+                    }
+                });
             }
         } catch (error) {
             console.error("Erro ao extrair [ano] da frase completa:", error);
         }
-        
+
         // Define o ano base para a extração de ordem bancária
         const anoFiltro = filtrosEncontrados.ano.length > 0
             ? filtrosEncontrados.ano[0].codigo
@@ -119,12 +136,10 @@ class FiltroService {
 
                         resultados.forEach(res => {
                             if (res.trecho_encontrado) {
-                                // Escapa caracteres especiais mas converte os espaços literais em \s+
-                                // para suportar múltiplos espaços acidentais na frase original
                                 let trechoEscapado = res.trecho_encontrado
-                                    .replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); // Escape normal
-                                trechoEscapado = trechoEscapado.replace(/\s+/g, "\\s+"); // Converte literal space em \s+ regex
-                                
+                                    .replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+                                trechoEscapado = trechoEscapado.replace(/\s+/g, "\\s+");
+
                                 const regex = new RegExp(trechoEscapado, "gi");
                                 trecho = trecho.replace(regex, " ").trim();
                             }
@@ -156,7 +171,7 @@ class FiltroService {
                                 let trechoEscapado = res.trecho_encontrado
                                     .replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
                                 trechoEscapado = trechoEscapado.replace(/\s+/g, "\\s+");
-                                
+
                                 const regex = new RegExp(trechoEscapado, "gi");
                                 trecho = trecho.replace(regex, " ").trim();
                             }

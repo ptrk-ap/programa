@@ -18,7 +18,7 @@ const STOPWORDS = new Set([
     "despesas_liquidadas", "despesas_pagas", "despesas_exercicio_pagas",
     "ods", "eixo", "poder", "emenda", "contrato", "convenio_despesa",
     "convenio_receita", "a", "ante", "apos", "ate", "com", "contra", "de",
-    "desde", "em", "entre", "para", "por", "perante", "sem", "sobre"
+    "desde", "em", "entre", "para", "por", "perante", "sem", "sobre", "agrupamento_mensal"
 ]);
 
 function prepararTermo(text) {
@@ -35,19 +35,17 @@ class CredorService {
     async extrair(frase) {
         const fraseNormalizada = prepararTermo(frase);
 
+
         // ============================================================
         // 1️⃣ PRIORIDADE: CPF ou CNPJ (Busca exata por código)
         // ============================================================
         const numerosNaFrase = fraseNormalizada.match(/\b\d{11}\b|\b\d{14}\b/g) || [];
 
         if (numerosNaFrase.length > 0) {
-            const placeholders = numerosNaFrase.map(() => "?").join(", ");
-            const [rows] = await pool.execute(
-                `SELECT codigo, descricao FROM credor 
-                 WHERE codigo IN (${placeholders}) 
-                 LIMIT 10`,
-                numerosNaFrase
-            );
+            const rows = await pool("credor")
+                .select("codigo", "descricao")
+                .whereIn("codigo", numerosNaFrase)
+                .limit(10);
 
             if (rows.length > 0) {
                 return rows.map(r => ({
@@ -63,6 +61,7 @@ class CredorService {
         // ============================================================
         const palavras = fraseNormalizada.split(/\s+/);
 
+
         const termosValidos = palavras.filter(t =>
             t.length > 2 &&
             !STOPWORDS.has(t.toLowerCase())
@@ -72,6 +71,7 @@ class CredorService {
 
         // Remove a palavra 'CREDOR' para não buscar por ela no banco
         const termosParaBusca = termosValidos.filter(t => t !== "CREDOR");
+        console.log("termosParaBusca: " + termosParaBusca);
 
         // Verificação por dicionário
         const temSobrenome = termosParaBusca.some(t => SOBRENOMES.has(t));
@@ -89,18 +89,13 @@ class CredorService {
              * Usamos LIKE com COLLATE para ignorar acentos do banco (ex: Camarão).
              * O AND garante que TODOS os termos (Delma, Carmo, Camarao) estejam na descrição.
              */
-            const condicoes = termosParaBusca
-                .map(() => "(descricao COLLATE utf8mb4_general_ci) LIKE ?")
-                .join(" AND ");
+            let query = pool("credor").select("codigo", "descricao");
 
-            const params = termosParaBusca.map(t => `%${t}%`);
+            termosParaBusca.forEach(t => {
+                query = query.whereRaw("(descricao COLLATE utf8mb4_general_ci) LIKE ?", [`%${t}%`]);
+            });
 
-            const [rows] = await pool.execute(
-                `SELECT codigo, descricao FROM credor 
-                 WHERE ${condicoes} 
-                 LIMIT 10`,
-                params
-            );
+            const rows = await query.limit(10);
 
             return rows.map(r => ({
                 codigo: r.codigo,
