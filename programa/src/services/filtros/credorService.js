@@ -71,7 +71,7 @@ class CredorService {
 
         // Remove a palavra 'CREDOR' para não buscar por ela no banco
         const termosParaBusca = termosValidos.filter(t => t !== "CREDOR");
-        console.log("termosParaBusca: " + termosParaBusca);
+
 
         // Verificação por dicionário
         const temSobrenome = termosParaBusca.some(t => SOBRENOMES.has(t));

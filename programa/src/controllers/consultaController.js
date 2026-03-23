@@ -32,25 +32,65 @@ async function consulta(req, res, next) {
 
         //quebra a frase em pedaços usando os termos do banco como marcador
         const divisor = Splitservice.quebrarFrase(fraseProcessada);
-        console.log("divisor: " + divisor);
+
 
         // Procura filtros nos pedaços
         const filtros = await filtroService.processarFiltros(divisor);
-        console.log(filtros);
+        // console.log(filtros);
+
+        // --- VALIDAÇÕES DE REQUISITOS BÁSICOS ---
+
+        // 1. Verificação de dotação ou despesas (obrigatório ao menos um)
+        const termosObrigatorios = [
+            "dotacao_inicial",
+            "despesas_empenhadas",
+            "despesas_liquidadas",
+            "despesas_pagas",
+            "despesas_exercicio_pagas"
+        ];
+        const temDespesaOuDotacao = parametrosEncontrados.some(p => termosObrigatorios.includes(p));
+
+        if (!temDespesaOuDotacao) {
+            return res.status(400).json({
+                erro: "Requisição incompleta",
+                mensagem: "Para que o sistema funcione, é obrigatório informar ao menos uma dessas despesas (Empenhada, Liquidada, Paga ou do Exercício) ou a Dotação Inicial."
+            });
+        }
+
+        // 2. Verificação de categorias ou filtros (obrigatório ao menos um)
+        const categoriasObrigatorias = [
+            "unidade_gestora", "fonte", "natureza_despesa", "programa", "acao",
+            "unidade_orcamentaria", "elemento_despesa", "grupo_despesa",
+            "categoria_despesa", "funcao", "ods", "eixo", "poder", "emenda",
+            "contrato", "convenio_despesa", "convenio_receita", "credor", "agrupamento_mensal"
+        ];
+        const temCategoria = parametrosEncontrados.some(p => categoriasObrigatorias.includes(p));
+
+        // O sistema não deve considerar 'ano' ou 'ordem_bancaria' como filtros suficientes para o contexto
+        const chavesFiltroValidos = Object.keys(filtros).filter(f => f !== "ano" && f !== "ordem_bancaria");
+        const temFiltro = chavesFiltroValidos.length > 0;
+
+        if (!temCategoria && !temFiltro) {
+            return res.json({
+                mensagem: "Consulta muito genérica. Para obter resultados, informe ao menos uma categoria (ex: Órgão, Programa) ou filtro específico.",
+                resultado: []
+            });
+        }
+
+        // --- FIM DAS VALIDAÇÕES ---
 
         // Extrai os anos para a query eliminando duplicados
         const anosQuery = filtros.ano && filtros.ano.length > 0
             ? [...new Set(filtros.ano.map(a => a.codigo))]
             : [filtroService.services.ano.getAnoPadrao()];
-
         // Monta a query multi-ano
         const { sql, params } = queryService.buildQuery(parametrosEncontrados, filtros, anosQuery);
-        //console.log(sql, params);
+        // console.log(sql, params);
 
-        //executar conulta sql
+        // Executar consulta SQL
         const [rows] = await knex.raw(sql, params);
 
-        //formatar resultado para reais
+        // Formatar resultado para reais
         const resultadoFormatado = FormatterService.formatarResultado(rows);
 
         let periodosTexto = [];
@@ -68,13 +108,15 @@ async function consulta(req, res, next) {
             resultado: resultadoFormatado
         }
 
-
         return res.json(resposta);
 
-
     } catch (err) {
-        //next(err);
-        return res.json("Desculpe, não entendi. você poderia reformular sua pergunta? lembre-se de usar sempre termos técnicos e formais em consultas contabeis ");
+        console.error("Erro no ConsultaController:", err);
+        return res.status(500).json({
+            erro: "Erro interno no servidor",
+            mensagem: "Desculpe, não entendi sua solicitação. Você poderia reformular sua pergunta? Lembre-se de usar termos técnicos e formais em consultas contábeis.",
+            detalhes: process.env.NODE_ENV === 'development' ? err.message : undefined
+        });
     }
 }
 
