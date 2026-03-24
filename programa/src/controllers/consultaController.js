@@ -4,16 +4,13 @@ const ExtratorTermosService = require("../services/entidades/ExtratorTermosServi
 const Splitservice = require("../services/entidades/splitService");
 const filtroService = require("../services/filtros/filtroService");
 const QueryService = require("../services/query/queryService");
-const queryService = new QueryService();
-const knex = require("../database/connection");
 const FormatterService = require("../services/entidades/formatterService");
+const ValidacaoConsultaService = require("../services/entidades/ValidacaoConsultaService");
 
-
-
+const queryService = new QueryService();
 
 async function consulta(req, res, next) {
     const consultaFrase = req.body.frase;
-    let aux = '';
 
     if (!consultaFrase || typeof consultaFrase !== "string") {
         return res.status(400).json({
@@ -22,93 +19,57 @@ async function consulta(req, res, next) {
     }
 
     try {
-        //traduzir especificos para termos do banco: unidade gestora -> unidade_gestora
+        // 1. Traduz termos naturais para termos SQL (ex: "unidade gestora" → "unidade_gestora")
         const fraseProcessada = OrcamentoService.traduzirParaTermosSql(consultaFrase);
 
+        // 1.1 Extração de aviso de anos fora do limite
+        const avisoAno = ValidacaoConsultaService.verificarAnoLimite(consultaFrase);
 
-
-        //identifica e lista os campos do relatorio presente na frase
+        // 2. Identifica os campos do relatório presentes na frase
         const parametrosEncontrados = ExtratorTermosService.identificarParametros(fraseProcessada);
 
-        //quebra a frase em pedaços usando os termos do banco como marcador
+        // 3. Quebra a frase em segmentos usando os termos como marcadores
         const divisor = Splitservice.quebrarFrase(fraseProcessada);
 
-
-        // Procura filtros nos pedaços
+        // 4. Extrai filtros de cada segmento
         const filtros = await filtroService.processarFiltros(divisor);
-        // console.log(filtros);
 
-        // --- VALIDAÇÕES DE REQUISITOS BÁSICOS ---
-
-        // 1. Verificação de dotação ou despesas (obrigatório ao menos um)
-        const termosObrigatorios = [
-            "dotacao_inicial",
-            "despesas_empenhadas",
-            "despesas_liquidadas",
-            "despesas_pagas",
-            "despesas_exercicio_pagas"
-        ];
-        const temDespesaOuDotacao = parametrosEncontrados.some(p => termosObrigatorios.includes(p));
-
-        if (!temDespesaOuDotacao) {
+        // 5. Validação: ao menos uma despesa ou dotação é obrigatória
+        if (!ValidacaoConsultaService.temDespesaOuDotacao(parametrosEncontrados)) {
             return res.status(400).json({
                 erro: "Requisição incompleta",
                 mensagem: "Para que o sistema funcione, é obrigatório informar ao menos uma dessas despesas (Empenhada, Liquidada, Paga ou do Exercício) ou a Dotação Inicial."
             });
         }
 
-        // 2. Verificação de categorias ou filtros (obrigatório ao menos um)
-        const categoriasObrigatorias = [
-            "unidade_gestora", "fonte", "natureza_despesa", "programa", "acao",
-            "unidade_orcamentaria", "elemento_despesa", "grupo_despesa",
-            "categoria_despesa", "funcao", "ods", "eixo", "poder", "emenda",
-            "contrato", "convenio_despesa", "convenio_receita", "credor", "agrupamento_mensal"
-        ];
-        const temCategoria = parametrosEncontrados.some(p => categoriasObrigatorias.includes(p));
-
-        // O sistema não deve considerar 'ano' ou 'ordem_bancaria' como filtros suficientes para o contexto
-        const chavesFiltroValidos = Object.keys(filtros).filter(f => f !== "ano" && f !== "ordem_bancaria");
-        const temFiltro = chavesFiltroValidos.length > 0;
-
-        if (!temCategoria && !temFiltro) {
+        // 6. Validação: ao menos uma categoria ou filtro específico é necessário
+        if (!ValidacaoConsultaService.temCategoriaOuFiltro(parametrosEncontrados, filtros)) {
             return res.json({
                 mensagem: "Consulta muito genérica. Para obter resultados, informe ao menos uma categoria (ex: Órgão, Programa) ou filtro específico.",
                 resultado: []
             });
         }
 
-        // --- FIM DAS VALIDAÇÕES ---
+        // 7. Resolve a lista de anos (deduplica ou usa ano padrão)
+        const anosQuery = filtroService.resolverAnos(filtros);
 
-        // Extrai os anos para a query eliminando duplicados
-        const anosQuery = filtros.ano && filtros.ano.length > 0
-            ? [...new Set(filtros.ano.map(a => a.codigo))]
-            : [filtroService.services.ano.getAnoPadrao()];
-        // Monta a query multi-ano
+        // 8. Monta e executa a query
         const { sql, params } = queryService.buildQuery(parametrosEncontrados, filtros, anosQuery);
-        // console.log(sql, params);
+        const rows = await queryService.executar(sql, params);
 
-        // Executar consulta SQL
-        const [rows] = await knex.raw(sql, params);
-
-        // Formatar resultado para reais
+        // 9. Formata os valores monetários e o credor
         const resultadoFormatado = FormatterService.formatarResultado(rows);
 
-        let periodosTexto = [];
-        if (filtros.ordem_bancaria && filtros.ordem_bancaria.length > 0) {
-            periodosTexto = filtros.ordem_bancaria.map(ob => `${ob.data_inicio} a ${ob.data_fim}`);
-        } else {
-            // Formatação mais legível para os anos completos
-            periodosTexto = anosQuery.map(a => `Exercício de ${a}`);
+        // 10. Monta a resposta
+        let mensagemFinal = FormatterService.formatarMensagemPeriodo(filtros, anosQuery);
+        if (avisoAno) {
+            mensagemFinal += `\n${avisoAno}`;
         }
 
-        aux = `Valores correspondentes ao período: ${periodosTexto.join(', ')}`;
-
-        const resposta = {
-            mensagem: aux,
+        return res.json({
+            mensagem: mensagemFinal,
             resultado: resultadoFormatado
-        }
-
-        return res.json(resposta);
+        });
 
     } catch (err) {
         console.error("Erro no ConsultaController:", err);
@@ -120,7 +81,4 @@ async function consulta(req, res, next) {
     }
 }
 
-module.exports = {
-    consulta
-
-};
+module.exports = { consulta };

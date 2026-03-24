@@ -56,6 +56,7 @@ class FiltroService {
      */
     static GRUPOS_PARALELOS = [
         ["unidade_gestora", "unidade_orcamentaria"],
+
     ];
 
     /**
@@ -204,6 +205,36 @@ class FiltroService {
         }
 
         return resultadoFinal;
+    }
+
+    /**
+     * Resolve a lista de anos a ser usada na query.
+     * Se houver anos nos filtros, deduplica e retorna seus códigos.
+     * Caso contrário, retorna o ano padrão do sistema.
+     *
+     * @param {Object} filtros - Objeto retornado por processarFiltros().
+     * @returns {number[]}
+     */
+    resolverAnos(filtros) {
+        const anosSet = new Set();
+        
+        if (filtros.ano && filtros.ano.length > 0) {
+            filtros.ano.forEach(a => anosSet.add(a.codigo));
+        }
+        
+        // Também inclui tabelas dos anos citados na ordem bancária
+        if (filtros.ordem_bancaria && filtros.ordem_bancaria.length > 0) {
+            filtros.ordem_bancaria.forEach(ob => {
+                if (ob.data_inicio) anosSet.add(parseInt(ob.data_inicio.substring(0, 4)));
+                if (ob.data_fim) anosSet.add(parseInt(ob.data_fim.substring(0, 4)));
+            });
+        }
+
+        if (anosSet.size > 0) {
+            return [...anosSet];
+        }
+        
+        return [this.services.ano.getAnoPadrao()];
     }
 }
 

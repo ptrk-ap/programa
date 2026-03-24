@@ -84,6 +84,19 @@ class CredorService {
 
             if (termosParaBusca.length === 0) return [];
 
+            // Identificar o trecho mínimo na frase (aproximado usando bound index da frase normalizada)
+            const firstIdx = Math.min(...termosParaBusca.map(t => fraseNormalizada.indexOf(t)).filter(idx => idx !== -1));
+            const lastIdx = termosParaBusca.reduce((last, t) => {
+                const idx = fraseNormalizada.indexOf(t) + t.length;
+                return idx > last ? idx : last;
+            }, -1);
+            
+            let trechoMinimo = frase;
+            if (firstIdx !== Infinity && firstIdx !== -1 && lastIdx !== -1) {
+                // Em JS, devido a normalizações, os tamanhos podem variar sutilmente, mas é seguro na maioria dos casos.
+                trechoMinimo = frase.substring(firstIdx, lastIdx).trim();
+            }
+
             /**
              * SOLUÇÃO PARA DELMA CARMO CAMARAO:
              * Usamos LIKE com COLLATE para ignorar acentos do banco (ex: Camarão).
@@ -100,7 +113,7 @@ class CredorService {
             return rows.map(r => ({
                 codigo: r.codigo,
                 descricao: r.descricao,
-                trecho_encontrado: frase
+                trecho_encontrado: trechoMinimo
             }));
         }
 

@@ -77,6 +77,27 @@ class FormatterService {
             return novo;
         });
     }
+
+    /**
+     * Formata a mensagem de período para exibição na resposta da API.
+     * - Se houver ordem_bancaria nos filtros, usa os intervalos de data.
+     * - Caso contrário, usa os anos no formato "Exercício de AAAA".
+     *
+     * @param {Object}   filtros  - Objeto retornado pelo filtroService.
+     * @param {number[]} anos     - Lista de anos resolvidos pela query.
+     * @returns {string}
+     */
+    static formatarMensagemPeriodo(filtros, anos) {
+        let periodosTexto;
+
+        if (filtros.ordem_bancaria && filtros.ordem_bancaria.length > 0) {
+            periodosTexto = filtros.ordem_bancaria.map(ob => `${ob.data_inicio} a ${ob.data_fim}`);
+        } else {
+            periodosTexto = anos.map(a => `Exercício de ${a}`);
+        }
+
+        return `Valores correspondentes ao período: ${periodosTexto.join(', ')}`;
+    }
 }
 
 module.exports = FormatterService;

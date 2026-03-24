@@ -2,6 +2,7 @@ const { ENTITY_COLUMNS, VALUE_COLUMNS } = require("./QueryConfig");
 const { validateFields, validateValueFields, validateEntities } = require("./QueryValidator");
 const { processFiltros, separateFiltros } = require("./FilterProcessor");
 const { buildSelectAndGroupBy, buildWhere, buildOrderBy } = require("./QueryBuilder");
+const knex = require("../../database/connection");
 
 class QueryService {
     buildQuery(camposSolicitados = [], filtrosEncontrados = {}, anos = [2026]) {
@@ -76,6 +77,18 @@ class QueryService {
         `.trim().replace(/\s+/g, ' ');
 
         return { sql, params: finalParams };
+    }
+
+    /**
+     * Executa a query SQL montada pelo buildQuery no banco de dados.
+     *
+     * @param {string}  sql    - Query SQL com placeholders.
+     * @param {Array}   params - Parâmetros para substituição.
+     * @returns {Promise<Array>} - Array de linhas retornadas.
+     */
+    async executar(sql, params) {
+        const [rows] = await knex.raw(sql, params);
+        return rows;
     }
 }
 

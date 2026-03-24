@@ -49,8 +49,18 @@ class AnoService {
         const regexAno = new RegExp(regexStr, 'g');
         const matches = [...fraseSemIntervalos.matchAll(regexAno)];
 
+        const regexMes = /\b(?:janeiro|fevereiro|marco|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro|jan|fev|mar|abr|mai|jun|jul|ago|set|out|nov|dez)\s*(?:de\s*)?$/i;
+
         for (const m of matches) {
             const ano = parseInt(m[0]);
+            
+            // Verifica se o texto anterior à posição do ano termina com um mês
+            // Isso evita remover o ano se ele faz parte de um bloco como "abril de 2024"
+            const textoAnterior = fraseSemIntervalos.substring(0, m.index);
+            if (regexMes.test(textoAnterior)) {
+                continue; 
+            }
+
             if (!anosExtraidos.has(ano)) {
                 anosExtraidos.add(ano);
                 retornos.push({
