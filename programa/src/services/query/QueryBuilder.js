@@ -47,9 +47,11 @@ function buildWhere(hierarquicos, independentes, filtrosEncontrados) {
         const partes = [];
 
         for (const [entidade, valores] of Object.entries(entidadesNivel)) {
-            const placeholders = valores.map(() => "?").join(", ");
-            partes.push(`${quoteIdent(entidade)} IN (${placeholders})`);
-            params.push(...valores);
+            const likes = valores
+                .map(() => `${quoteIdent(entidade)} LIKE ?`)
+                .join(" OR ");
+            partes.push(`(${likes})`);
+            params.push(...valores.map(v => `${v}%`));
         }
 
         blocosHierarquicos.push(`(${partes.join(" AND ")})`);

@@ -33,6 +33,7 @@ async function consulta(req, res, next) {
 
         // 4. Extrai filtros de cada segmento
         const filtros = await filtroService.processarFiltros(divisor);
+        console.log(filtros);
 
         // 5. Validação: ao menos uma despesa ou dotação é obrigatória
         if (!ValidacaoConsultaService.temDespesaOuDotacao(parametrosEncontrados)) {
@@ -55,6 +56,7 @@ async function consulta(req, res, next) {
 
         // 8. Monta e executa a query
         const { sql, params } = queryService.buildQuery(parametrosEncontrados, filtros, anosQuery);
+
         const rows = await queryService.executar(sql, params);
 
         // 9. Formata os valores monetários e o credor
