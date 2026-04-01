@@ -19,6 +19,7 @@ const ConvenioReceitaService = require("./convenioreceitaService");
 const CredorService = require("./credorService");
 const PeriodoService = require("./dateService");
 const AnoService = require("./anoService");
+const exclusaoFiltroService = require("./exclusaoFiltroService");
 
 class FiltroService {
     constructor() {
@@ -83,6 +84,9 @@ class FiltroService {
         try {
             const anosEncontrados = await this.services.ano.extrair(fraseCompleta);
             if (anosEncontrados && anosEncontrados.length > 0) {
+                anosEncontrados.forEach(res => {
+                    res.excluir = exclusaoFiltroService.verificarExclusao(fraseCompleta, res.trecho_encontrado);
+                });
                 filtrosEncontrados.ano.push(...anosEncontrados);
 
                 // Remove o trecho do ano de cada parte do array — mesmo padrão dos outros serviços
@@ -133,6 +137,9 @@ class FiltroService {
 
                 for (const { entidade, resultados } of resultadosGrupo) {
                     if (resultados.length > 0) {
+                        resultados.forEach(res => {
+                            res.excluir = exclusaoFiltroService.verificarExclusao(fraseCompleta, res.trecho_encontrado);
+                        });
                         filtrosEncontrados[entidade].push(...resultados);
 
                         resultados.forEach(res => {
@@ -165,6 +172,9 @@ class FiltroService {
                     }
 
                     if (resultados && resultados.length > 0) {
+                        resultados.forEach(res => {
+                            res.excluir = exclusaoFiltroService.verificarExclusao(fraseCompleta, res.trecho_encontrado);
+                        });
                         filtrosEncontrados[entidade].push(...resultados);
 
                         resultados.forEach(res => {
@@ -217,12 +227,13 @@ class FiltroService {
      */
     resolverAnos(filtros) {
         const anosSet = new Set();
-        
+
         if (filtros.ano && filtros.ano.length > 0) {
             filtros.ano.forEach(a => anosSet.add(a.codigo));
         }
-        
-        // Também inclui tabelas dos anos citados na ordem bancária
+
+        // Também inclui tabelas dos anos cita
+        // dos na ordem bancária
         if (filtros.ordem_bancaria && filtros.ordem_bancaria.length > 0) {
             filtros.ordem_bancaria.forEach(ob => {
                 if (ob.data_inicio) anosSet.add(parseInt(ob.data_inicio.substring(0, 4)));
@@ -233,7 +244,7 @@ class FiltroService {
         if (anosSet.size > 0) {
             return [...anosSet];
         }
-        
+
         return [this.services.ano.getAnoPadrao()];
     }
 }

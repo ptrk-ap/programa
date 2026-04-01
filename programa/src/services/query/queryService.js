@@ -19,10 +19,18 @@ class QueryService {
         // 2. Processamento dos filtros
         const filtrosValidos = processFiltros(filtrosEncontrados);
 
-        // 3. Entidades finais (solicitadas + filtradas)
+        // 2.1 Identifica entidades que possuem ao menos um filtro inclusivo (não-exclusão)
+        // para que não agrupemos acidentalmente por uma entidade que apenas foi excluída
+        const entidadesFiltradasInclusivas = Object.keys(filtrosValidos).filter(entidade => {
+            const valores = filtrosValidos[entidade];
+            // valores é um array de { valor, excluir }
+            return valores.some(v => v.excluir === false || v.excluir === undefined);
+        });
+
+        // 3. Entidades finais (solicitadas + filtradas inclusivas)
         const entidadesFinais = new Set([
             ...entidadesSolicitadas,
-            ...Object.keys(filtrosValidos)
+            ...entidadesFiltradasInclusivas
         ]);
 
         validateEntities(entidadesFinais);

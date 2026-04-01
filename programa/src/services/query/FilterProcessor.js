@@ -6,18 +6,23 @@ const { ENTITY_COLUMNS, HIERARCHY_LEVEL } = require("./QueryConfig");
  * Para demais entidades, mantém o padrão "codigo - descricao".
  */
 function toEntityValues(arr = [], entidade = "") {
-    return arr
-        .map(i => {
-            const codigo = String(i.codigo).trim();
-            const descricao = String(i.descricao || "").trim();
+    let result = [];
+    for (const i of arr) {
+        if (i == null) continue;
+        const codigo = String(i.codigo || "").trim();
+        const descricao = String(i.descricao || "").trim();
+        if (!codigo) continue;
 
-            if (entidade === "credor") {
-                return codigo;
-            }
+        let valor;
+        if (entidade === "credor") {
+            valor = codigo;
+        } else {
+            valor = descricao ? `${codigo} - ${descricao}` : codigo;
+        }
 
-            return descricao ? `${codigo} - ${descricao}` : codigo;
-        })
-        .filter(Boolean);
+        result.push({ valor, excluir: !!i.excluir });
+    }
+    return result;
 }
 
 /**

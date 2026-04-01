@@ -1,3 +1,5 @@
+const exclusaoFiltroService = require("../filtros/exclusaoFiltroService");
+
 /**
  * ExtratorTermosService - Identifica quais chaves padronizadas estão presentes na frase.
  */
@@ -45,7 +47,11 @@ class ExtratorTermosService {
             // Usamos uma Regex com Word Boundary (\b) para garantir que
             // "despesa_paga" não seja confundido com "despesa_exercicio_paga"
             const regex = new RegExp(`\\b${chave}\\b`, 'g');
-            return regex.test(textoNormatizado);
+            if (!regex.test(textoNormatizado)) return false;
+            
+            // Ignora a chave explícita ("fonte", "natureza") se ela for apenas o alvo de uma exclusão ("sem a fonte")
+            const isExcluded = exclusaoFiltroService.verificarExclusao(textoNormatizado, chave);
+            return !isExcluded;
         });
     }
 }
