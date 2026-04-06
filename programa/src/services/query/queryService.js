@@ -45,8 +45,14 @@ class QueryService {
 
         // 5.1 Prepara listagem bruta para as subqueries do formato UNION
         const rawColumns = new Set();
+        const AGRUPAMENTOS_PERIODICOS = new Set([
+            "agrupamento_mensal",
+            "agrupamento_bimestral",
+            "agrupamento_trimestral",
+            "agrupamento_semestral"
+        ]);
         for (const entidade of entidadesFinais) {
-            if (entidade === "agrupamento_mensal") {
+            if (AGRUPAMENTOS_PERIODICOS.has(entidade)) {
                 rawColumns.add("ordem_bancaria");
             } else {
                 rawColumns.add(entidade);
@@ -61,14 +67,27 @@ class QueryService {
             ? Array.from(rawColumns).map(c => `\`${c}\``).join(", ")
             : "1 AS dummy";
 
-        // 5.2 Monta o UNION iterando os anos
+        // 5.2 Calcula cutoff para o ano corrente (apenas períodos consolidados)
+        const anoAtual = new Date().getFullYear();
+        const cutoffAnoAtual = this._calcularCutoffAnoAtual(entidadesFinais);
+
+        // 5.3 Monta o UNION iterando os anos
         const unionQueries = [];
         const finalParams = [];
 
         for (const anoLoop of anos) {
             const tempTable = `\`execucao${anoLoop}\``;
-            unionQueries.push(`SELECT ${rawSelectList} FROM ${tempTable} ${whereClause}`);
-            finalParams.push(...baseParams);
+
+            // Aplica cutoff apenas no ano corrente para mostrar só períodos fechados
+            if (anoLoop === anoAtual && cutoffAnoAtual) {
+                const separator = whereClause.trim().toUpperCase().startsWith('WHERE') ? 'AND' : 'WHERE';
+                const whereComCutoff = `${whereClause} ${separator} \`ordem_bancaria\` <= ?`;
+                unionQueries.push(`SELECT ${rawSelectList} FROM ${tempTable} ${whereComCutoff}`);
+                finalParams.push(...baseParams, cutoffAnoAtual);
+            } else {
+                unionQueries.push(`SELECT ${rawSelectList} FROM ${tempTable} ${whereClause}`);
+                finalParams.push(...baseParams);
+            }
         }
 
         const joinedUnions = unionQueries.join("\n                UNION ALL\n                ");
@@ -85,6 +104,46 @@ class QueryService {
         `.trim().replace(/\s+/g, ' ');
 
         return { sql, params: finalParams };
+    }
+
+    /**
+     * Calcula a data de corte para o ano atual com base nos agrupamentos solicitados.
+     * Isso garante que apenas períodos consolidados (fechados) sejam exibidos
+     * quando se agrupa por mês, bimestre, trimestre ou semestre.
+     * 
+     * @param {Set<string>} entidadesFinais 
+     * @returns {string|null} - Data no formato YYYY-MM-DD ou null.
+     */
+    _calcularCutoffAnoAtual(entidadesFinais) {
+        const hoje = new Date();
+        const ano = hoje.getFullYear();
+        const mes = hoje.getMonth(); // 0-11
+
+        if (entidadesFinais.has("agrupamento_mensal")) {
+            // Último dia do mês anterior
+            return new Date(ano, mes, 0).toISOString().split('T')[0];
+        }
+
+        if (entidadesFinais.has("agrupamento_bimestral")) {
+            // Último dia do bimestre anterior
+            const bimestreAnterior = Math.floor(mes / 2);
+            return new Date(ano, bimestreAnterior * 2, 0).toISOString().split('T')[0];
+        }
+
+        if (entidadesFinais.has("agrupamento_trimestral")) {
+            // Último dia do trimestre anterior
+            const trimestreAnterior = Math.floor(mes / 3);
+            return new Date(ano, trimestreAnterior * 3, 0).toISOString().split('T')[0];
+        }
+
+        if (entidadesFinais.has("agrupamento_semestral")) {
+            // Último dia do semestre anterior
+            const semestreAnterior = Math.floor(mes / 6);
+            return new Date(ano, semestreAnterior * 6, 0).toISOString().split('T')[0];
+        }
+
+        // Sem agrupamento periódico, retorna hoje (sem restrição de período fechado)
+        return hoje.toISOString().split('T')[0];
     }
 
     /**

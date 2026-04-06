@@ -24,7 +24,10 @@ const ENTITY_COLUMNS = [
     "contrato",
     "credor",
     "ordem_bancaria",
-    "agrupamento_mensal"
+    "agrupamento_mensal",
+    "agrupamento_bimestral",
+    "agrupamento_trimestral",
+    "agrupamento_semestral"
 ];
 
 const VALUE_COLUMNS = [

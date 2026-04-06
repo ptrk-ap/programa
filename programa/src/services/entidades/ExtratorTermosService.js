@@ -30,7 +30,10 @@ class ExtratorTermosService {
             "convenio_despesa",
             "convenio_receita",
             "credor",
-            "agrupamento_mensal"
+            "agrupamento_mensal",
+            "agrupamento_bimestral",
+            "agrupamento_trimestral",
+            "agrupamento_semestral"
         ];
     }
 

@@ -173,7 +173,11 @@ class OrcamentoService {
                 "empenhado",
                 "empenhados",
                 "empenhada",
-                "empenhadas"
+                "empenhadas",
+                "nota de empenho",
+                "notas de empenho",
+                "empenho",
+                "empenhos"
             ],
 
             // Termo longo (específico)
@@ -206,14 +210,54 @@ class OrcamentoService {
                 "liquidado",
                 "liquidados",
                 "liquida",
-                "liquidadas"
+                "liquidadas",
+                "nota de liquidacao",
+                "notas de liquidacao",
+                "liquidacao",
+                "liquidacoes"
             ],
             "agrupamento_mensal": [
                 "mes a mes",
                 "por mes",
+                "por meses",
                 "cada mes",
+                "cada meses",
                 "mensalmente",
-                "mensal"
+                "mensal",
+                "mensais"
+            ],
+
+            "agrupamento_bimestral": [
+                "por bimestre",
+                "por bimestres",
+                "cada bimestre",
+                "cada bimestres",
+                "bimestralmente",
+                "bimestral",
+                "bimestrais",
+                "bimestre a bimestre"
+            ],
+
+            "agrupamento_trimestral": [
+                "por trimestre",
+                "por trimestres",
+                "cada trimestre",
+                "cada trimestres",
+                "trimestralmente",
+                "trimestral",
+                "trimestrais",
+                "trimestre a trimestre"
+            ],
+
+            "agrupamento_semestral": [
+                "por semestre",
+                "por semestres",
+                "cada semestre",
+                "cada semestres",
+                "semestralmente",
+                "semestral",
+                "semestrais",
+                "semestre a semestre"
             ]
         };
 

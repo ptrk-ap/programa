@@ -18,7 +18,8 @@ const STOPWORDS = new Set([
     "despesas_liquidadas", "despesas_pagas", "despesas_exercicio_pagas",
     "ods", "eixo", "poder", "emenda", "contrato", "convenio_despesa",
     "convenio_receita", "a", "ante", "apos", "ate", "com", "contra", "de",
-    "desde", "em", "entre", "para", "por", "perante", "sem", "sobre", "agrupamento_mensal"
+    "desde", "em", "entre", "para", "por", "perante", "sem", "sobre",
+    "agrupamento_mensal", "agrupamento_bimestral", "agrupamento_trimestral", "agrupamento_semestral"
 ]);
 
 function prepararTermo(text) {

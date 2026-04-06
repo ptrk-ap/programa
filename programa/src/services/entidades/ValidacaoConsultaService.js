@@ -25,7 +25,8 @@ class ValidacaoConsultaService {
         "unidade_gestora", "fonte", "natureza_despesa", "programa", "acao",
         "unidade_orcamentaria", "elemento_despesa", "grupo_despesa",
         "categoria_despesa", "funcao", "ods", "eixo", "poder", "emenda",
-        "contrato", "convenio_despesa", "convenio_receita", "credor", "agrupamento_mensal"
+        "contrato", "convenio_despesa", "convenio_receita", "credor",
+        "agrupamento_mensal", "agrupamento_bimestral", "agrupamento_trimestral", "agrupamento_semestral"
     ];
 
     /**

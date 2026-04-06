@@ -17,6 +17,15 @@ function buildSelectAndGroupBy(entidadesFinais, valoresSolicitados) {
         if (entidade === "agrupamento_mensal") {
             selectParts.push(`MONTH(ordem_bancaria) AS mes`);
             groupByParts.push(`mes`);
+        } else if (entidade === "agrupamento_bimestral") {
+            selectParts.push(`CEIL(MONTH(ordem_bancaria) / 2) AS bimestre`);
+            groupByParts.push(`bimestre`);
+        } else if (entidade === "agrupamento_trimestral") {
+            selectParts.push(`QUARTER(ordem_bancaria) AS trimestre`);
+            groupByParts.push(`trimestre`);
+        } else if (entidade === "agrupamento_semestral") {
+            selectParts.push(`CASE WHEN MONTH(ordem_bancaria) <= 6 THEN 1 ELSE 2 END AS semestre`);
+            groupByParts.push(`semestre`);
         } else if (entidade !== "ordem_bancaria") {
             selectParts.push(quoteIdent(entidade));
             groupByParts.push(quoteIdent(entidade));
@@ -161,6 +170,24 @@ function buildOrderBy(entidadesFinais, selectParts) {
         orderClause = orderClause
             ? `${orderClause}, \`mes\` ASC`
             : `ORDER BY \`mes\` ASC`;
+    }
+
+    if (entidadesFinais.has("agrupamento_bimestral")) {
+        orderClause = orderClause
+            ? `${orderClause}, \`bimestre\` ASC`
+            : `ORDER BY \`bimestre\` ASC`;
+    }
+
+    if (entidadesFinais.has("agrupamento_trimestral")) {
+        orderClause = orderClause
+            ? `${orderClause}, \`trimestre\` ASC`
+            : `ORDER BY \`trimestre\` ASC`;
+    }
+
+    if (entidadesFinais.has("agrupamento_semestral")) {
+        orderClause = orderClause
+            ? `${orderClause}, \`semestre\` ASC`
+            : `ORDER BY \`semestre\` ASC`;
     }
 
     return orderClause;
