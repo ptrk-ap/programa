@@ -207,6 +207,14 @@ class FiltroService {
                         idsUnicos.add(chave);
                         return true;
                     }
+                    
+                    if (entidade === "emenda") {
+                        const chaveGenerica = `${item.codigo}_${item.descricao}`;
+                        if (idsUnicos.has(chaveGenerica)) return false;
+                        idsUnicos.add(chaveGenerica);
+                        return true;
+                    }
+                    
                     if (idsUnicos.has(item.codigo)) return false;
                     idsUnicos.add(item.codigo);
                     return true;

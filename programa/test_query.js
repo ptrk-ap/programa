@@ -6,7 +6,7 @@ const QueryService = require("./src/services/query/queryService");
 const queryService = new QueryService();
 
 async function runTest() {
-    const consultaFrase = "despesas pagas na ug 040302 em 2025";
+    const consultaFrase = "despesas pagas na seplan no primeiro trimestre de 2024";
     console.log("Original:", consultaFrase);
 
     const fraseProcessada = OrcamentoService.traduzirParaTermosSql(consultaFrase);

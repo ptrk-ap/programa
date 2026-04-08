@@ -83,7 +83,7 @@ function buildWhere(hierarquicos, independentes, filtrosEncontrados) {
 
     // Filtros independentes
     for (const [entidade, valores] of Object.entries(independentes)) {
-        if (entidade === "credor") {
+        if (entidade === "credor" || entidade === "emenda") {
             const incluir = valores.filter(v => !v.excluir);
             const excluir = valores.filter(v => v.excluir);
             

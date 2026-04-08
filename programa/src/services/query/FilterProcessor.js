@@ -9,12 +9,19 @@ function toEntityValues(arr = [], entidade = "") {
     let result = [];
     for (const i of arr) {
         if (i == null) continue;
+
+        // Specially handle date range filters
+        if (entidade === "ordem_bancaria" && i.data_inicio && i.data_fim) {
+            result.push({ ...i });
+            continue;
+        }
+
         const codigo = String(i.codigo || "").trim();
         const descricao = String(i.descricao || "").trim();
         if (!codigo) continue;
 
         let valor;
-        if (entidade === "credor") {
+        if (entidade === "credor" || entidade === "emenda") {
             valor = codigo;
         } else {
             valor = descricao ? `${codigo} - ${descricao}` : codigo;
