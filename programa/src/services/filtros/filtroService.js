@@ -208,7 +208,7 @@ class FiltroService {
                         return true;
                     }
                     
-                    if (entidade === "emenda") {
+                    if (entidade === "emenda" || entidade === "contrato") {
                         const chaveGenerica = `${item.codigo}_${item.descricao}`;
                         if (idsUnicos.has(chaveGenerica)) return false;
                         idsUnicos.add(chaveGenerica);

@@ -1,86 +1,104 @@
-const fs = require("fs");
-const path = require("path");
-const caminhoCsv = path.join(__dirname, "..", "..", "data", "entidades", "contrato.csv");
+const pool = require("../../database/connection");
+
+// ===== Stopwords =====
+const STOPWORDS = new Set([
+    "unidade_gestora", "fonte", "natureza_despesa", "programa", "acao",
+    "unidade_orcamentaria", "elemento_despesa", "grupo_despesa",
+    "categoria_despesa", "funcao", "dotacao_inicial", "despesas_empenhadas",
+    "despesas_liquidadas", "despesas_pagas", "despesas_exercicio_pagas",
+    "ods", "eixo", "poder", "emenda", "contrato", "convenio_despesa",
+    "convenio_receita", "a", "ante", "apos", "ate", "com", "contra", "de",
+    "desde", "em", "entre", "para", "por", "perante", "sem", "sobre", "ao", "aos", "na", "no", "nas", "nos",
+    "agrupamento_mensal", "agrupamento_bimestral", "agrupamento_trimestral", "agrupamento_semestral",
+    "despesa", "despesas"
+]);
+
+function prepararTermo(text) {
+    return text
+        .toUpperCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/Ç/g, "C")
+        .trim();
+}
 
 /**
- * Service responsável por:
- * - carregar o CSV de contratos em memória
- * - extrair contratos a partir de uma frase
- *
- * ESTRATÉGIA: puramente por código (8 dígitos exatos).
- * Já otimizado: Map O(1) + trigger "contrato".
+ * Service responsável por extrair contratos da frase.
+ * Segue o padrão do EmendaService: busca no banco de dados.
  */
 class ContratoService {
 
-    constructor() {
-        // Carrega CSV uma única vez
-        this.contratos = this.carregarCsv(caminhoCsv);
+    async extrair(frase) {
+        const fraseNormalizada = prepararTermo(frase);
 
-        // Índice rápido por código — O(1)
-        this.mapaPorCodigo = new Map(
-            this.contratos.map(c => [c.codigo, c])
-        );
-    }
+        // ============================================================
+        // 1️⃣ PRIORIDADE: Códigos de contrato específicos (8 dígitos)
+        // ============================================================
+        const regexCodigoContrato = /\b\d{8}\b/g;
+        const codigosNaFrase = fraseNormalizada.match(regexCodigoContrato) || [];
 
-    /**
-     * Lê o CSV e transforma em objetos.
-     * Suporta descrições com vírgulas internas.
-     */
-    carregarCsv(caminho) {
-        const conteudo = fs.readFileSync(caminho, "utf8");
+        if (codigosNaFrase.length > 0) {
+            const rows = await pool("contratos")
+                .select("codigo", "descricao")
+                .whereIn("codigo", codigosNaFrase)
+                .limit(10);
 
-        return conteudo
-            .split(/\r?\n/)
-            .filter(Boolean)
-            .slice(1)
-            .map(linha => {
-                const match = linha.match(/^([^,]+),(.*)$/);
-                if (!match) return null;
-
-                let codigo = match[1].trim();
-                let descricao = match[2].trim();
-
-                // Remove aspas caso existam
-                descricao = descricao.replace(/^"|"$/g, "");
-
-                return { codigo, descricao };
-            })
-            .filter(Boolean);
-    }
-
-    /**
-     * Extrai contratos de uma frase.
-     *
-     * 🔎 Só executa se contiver a palavra "contrato".
-     * 🔐 Apenas códigos com exatamente 8 dígitos.
-     *
-     * Complexidade: O(matches) — busca direta no Map.
-     */
-    extrair(frase) {
-        // Trigger obrigatório
-        if (!/\bcontrato\b/i.test(frase)) return [];
-
-        const resultados = [];
-        const encontrados = new Set();
-
-        // 🔐 Apenas códigos com exatamente 8 dígitos
-        const codigos = frase.match(/(?<!\d)\d{8}(?!\d)/g) || [];
-
-        for (const codigo of codigos) {
-            const contrato = this.mapaPorCodigo.get(codigo);
-
-            if (contrato && !encontrados.has(codigo)) {
-                resultados.push({
-                    codigo: contrato.codigo,
-                    descricao: contrato.descricao,
-                    trecho_encontrado: codigo
-                });
-                encontrados.add(codigo);
+            if (rows.length > 0) {
+                return rows.map(r => ({
+                    codigo: r.codigo,
+                    descricao: r.descricao,
+                    trecho_encontrado: r.codigo
+                }));
             }
         }
 
-        return resultados;
+        // ============================================================
+        // 2️⃣ PREPARAÇÃO DOS TERMOS TEXTUAIS (Se contiver "CONTRATO")
+        // ============================================================
+        const palavras = fraseNormalizada.split(/\s+/);
+        const temPalavraContrato = palavras.some(p => p.startsWith("CONTRATO"));
+
+        if (temPalavraContrato) {
+            const termosValidos = palavras.filter(t =>
+                t.length > 2 &&
+                !STOPWORDS.has(t.toLowerCase())
+            );
+
+            // Remove variações da palavra "contrato" da busca textual
+            const termosParaBusca = termosValidos.filter(t => !t.startsWith("CONTRATO"));
+
+            if (termosParaBusca.length === 0) return [];
+
+            // Identificar o trecho mínimo na frase original
+            const firstIdx = Math.min(...termosParaBusca.map(t => fraseNormalizada.indexOf(t)).filter(idx => idx !== -1));
+            const lastIdx = termosParaBusca.reduce((last, t) => {
+                const idx = fraseNormalizada.indexOf(t) + t.length;
+                return idx > last ? idx : last;
+            }, -1);
+
+            let trechoMinimo = frase;
+            if (firstIdx !== Infinity && firstIdx !== -1 && lastIdx !== -1) {
+                trechoMinimo = frase.substring(firstIdx, lastIdx).trim();
+            }
+
+            let query = pool("contratos").select("codigo", "descricao");
+
+            termosParaBusca.forEach(t => {
+                query = query.whereRaw("(descricao COLLATE utf8mb4_general_ci) LIKE ?", [`%${t}%`]);
+            });
+
+            const rows = await query.limit(10);
+
+            return rows.map(r => ({
+                codigo: r.codigo,
+                descricao: r.descricao,
+                trecho_encontrado: trechoMinimo
+            }));
+        }
+
+        return [];
     }
 }
 
 module.exports = ContratoService;
+
