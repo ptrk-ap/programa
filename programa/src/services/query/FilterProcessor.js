@@ -21,7 +21,7 @@ function toEntityValues(arr = [], entidade = "") {
         if (!codigo) continue;
 
         let valor;
-        if (entidade === "credor" || entidade === "emenda") {
+        if (["credor", "emenda", "contrato", "convenio_despesa", "convenio_receita"].includes(entidade)) {
             valor = codigo;
         } else {
             valor = descricao ? `${codigo} - ${descricao}` : codigo;

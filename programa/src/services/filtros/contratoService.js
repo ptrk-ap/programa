@@ -67,7 +67,17 @@ class ContratoService {
             // Remove variações da palavra "contrato" da busca textual
             const termosParaBusca = termosValidos.filter(t => !t.startsWith("CONTRATO"));
 
-            if (termosParaBusca.length === 0) return [];
+            if (termosParaBusca.length === 0) {
+                // Se a palavra CONTRATO está na frase mas não há termos de busca (ex: "sem contratos" ou "por contrato"),
+                // retornamos o valor padrão acompanhado de uma flag.
+                // O FiltroService decidirá se mantém esse filtro baseado no contexto de exclusão.
+                return [{
+                    codigo: "00000000",
+                    descricao: "SEM CONTRATO",
+                    trecho_encontrado: "contrato",
+                    autoGerado: true
+                }];
+            }
 
             // Identificar o trecho mínimo na frase original
             const firstIdx = Math.min(...termosParaBusca.map(t => fraseNormalizada.indexOf(t)).filter(idx => idx !== -1));

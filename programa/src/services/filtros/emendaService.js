@@ -64,7 +64,17 @@ class EmendaService {
             // Remove as variações da palavra "emenda" para não usá-las como termo de busca no banco
             const termosParaBusca = termosValidos.filter(t => t !== "EMENDA" && t !== "EMENDAS");
 
-            if (termosParaBusca.length === 0) return [];
+            if (termosParaBusca.length === 0) {
+                // Se a palavra EMENDA está na frase mas não há termos de busca (ex: "sem emendas" ou "por emenda"),
+                // retornamos o valor padrão acompanhado de uma flag.
+                // O FiltroService decidirá se mantém esse filtro baseado no contexto de exclusão.
+                return [{
+                    codigo: "E0000",
+                    descricao: "Não definida",
+                    trecho_encontrado: "emenda",
+                    autoGerado: true
+                }];
+            }
 
             // Identificar o trecho mínimo na frase original (aproximado usando bound index da frase normalizada)
             const firstIdx = Math.min(...termosParaBusca.map(t => fraseNormalizada.indexOf(t)).filter(idx => idx !== -1));

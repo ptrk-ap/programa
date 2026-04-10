@@ -81,6 +81,25 @@ class ConvenioReceitaService {
             }
         }
 
+        // Se a palavra CONVENIO está na frase mas não há códigos de busca (ex: "sem convenio" ou "por convenio"),
+        // retornamos o valor padrão acompanhado de uma flag.
+        if (resultados.length === 0) {
+            return [
+                {
+                    codigo: "000000",
+                    descricao: "- -",
+                    trecho_encontrado: "convenio",
+                    autoGerado: true
+                },
+                {
+                    codigo: " - - - ",
+                    descricao: "",
+                    trecho_encontrado: "convenio",
+                    autoGerado: true
+                }
+            ];
+        }
+
         return resultados;
     }
 }

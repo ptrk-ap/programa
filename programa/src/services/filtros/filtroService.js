@@ -57,6 +57,7 @@ class FiltroService {
      */
     static GRUPOS_PARALELOS = [
         ["unidade_gestora", "unidade_orcamentaria"],
+        ["convenio_despesa", "convenio_receita"],
 
     ];
 
@@ -137,21 +138,40 @@ class FiltroService {
 
                 for (const { entidade, resultados } of resultadosGrupo) {
                     if (resultados.length > 0) {
-                        resultados.forEach(res => {
-                            res.excluir = exclusaoFiltroService.verificarExclusao(fraseCompleta, res.trecho_encontrado);
-                        });
-                        filtrosEncontrados[entidade].push(...resultados);
+                        const resultadosValidados = resultados.filter(res => {
+                            const isExcl = exclusaoFiltroService.verificarExclusao(fraseCompleta, res.trecho_encontrado);
 
-                        resultados.forEach(res => {
-                            if (res.trecho_encontrado) {
-                                let trechoEscapado = res.trecho_encontrado
-                                    .replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-                                trechoEscapado = trechoEscapado.replace(/\s+/g, "\\s+");
+                            // Regra Especial: Registros "None" autogerados (ex: "por emenda") são descartados se não for exclusão
+                            if (res.autoGerado && !isExcl) return false;
 
-                                const regex = new RegExp(trechoEscapado, "gi");
-                                trecho = trecho.replace(regex, " ").trim();
+                            res.excluir = isExcl;
+
+                            // Regra Especial: "sem emendas/contratos/convenios" deve ser um filtro inclusivo para o valor "None"
+                            if (
+                                (entidade === "emenda" && res.codigo === "E0000") || 
+                                (entidade === "contrato" && res.codigo === "00000000") ||
+                                (entidade === "convenio_despesa" && (res.codigo === "000000" || res.codigo === " - - - ")) ||
+                                (entidade === "convenio_receita" && (res.codigo === "000000" || res.codigo === " - - - "))
+                            ) {
+                                res.excluir = false;
                             }
+                            return true;
                         });
+
+                        if (resultadosValidados.length > 0) {
+                            filtrosEncontrados[entidade].push(...resultadosValidados);
+
+                            resultadosValidados.forEach(res => {
+                                if (res.trecho_encontrado) {
+                                    let trechoEscapado = res.trecho_encontrado
+                                        .replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+                                    trechoEscapado = trechoEscapado.replace(/\s+/g, "\\s+");
+
+                                    const regex = new RegExp(trechoEscapado, "gi");
+                                    trecho = trecho.replace(regex, " ").trim();
+                                }
+                            });
+                        }
                     }
                 }
             }
@@ -172,26 +192,54 @@ class FiltroService {
                     }
 
                     if (resultados && resultados.length > 0) {
-                        resultados.forEach(res => {
-                            res.excluir = exclusaoFiltroService.verificarExclusao(fraseCompleta, res.trecho_encontrado);
-                        });
-                        filtrosEncontrados[entidade].push(...resultados);
+                        const resultadosValidados = resultados.filter(res => {
+                            const isExcl = exclusaoFiltroService.verificarExclusao(fraseCompleta, res.trecho_encontrado);
 
-                        resultados.forEach(res => {
-                            if (res.trecho_encontrado) {
-                                let trechoEscapado = res.trecho_encontrado
-                                    .replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-                                trechoEscapado = trechoEscapado.replace(/\s+/g, "\\s+");
+                            // Regra Especial: Registros "None" autogerados (ex: "por emenda") são descartados se não for exclusão
+                            if (res.autoGerado && !isExcl) return false;
 
-                                const regex = new RegExp(trechoEscapado, "gi");
-                                trecho = trecho.replace(regex, " ").trim();
+                            res.excluir = isExcl;
+
+                            // Regra Especial: "sem emendas/contratos/convenios" deve ser um filtro inclusivo para o valor "None"
+                            if (
+                                (entidade === "emenda" && res.codigo === "E0000") || 
+                                (entidade === "contrato" && res.codigo === "00000000") ||
+                                (entidade === "convenio_despesa" && (res.codigo === "000000" || res.codigo === " - - - ")) ||
+                                (entidade === "convenio_receita" && (res.codigo === "000000" || res.codigo === " - - - "))
+                            ) {
+                                res.excluir = false;
                             }
+                            return true;
                         });
+                        
+                        if (resultadosValidados.length > 0) {
+                            filtrosEncontrados[entidade].push(...resultadosValidados);
+
+                            resultadosValidados.forEach(res => {
+                                if (res.trecho_encontrado) {
+                                    let trechoEscapado = res.trecho_encontrado
+                                        .replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+                                    trechoEscapado = trechoEscapado.replace(/\s+/g, "\\s+");
+
+                                    const regex = new RegExp(trechoEscapado, "gi");
+                                    trecho = trecho.replace(regex, " ").trim();
+                                }
+                            });
+                        }
                     }
                 } catch (error) {
                     console.error(`Erro ao extrair [${entidade}] no trecho "${trecho}":`, error);
                 }
             }
+        }
+
+        // --- FALLBACK: Se for BUSCA DIÁRIA e nenhum mês/período e nenhum ano foi especificado, assume o Mês Atual ---
+        const fraseCompletaParaFallback = (partesFraseOriginal || []).join(" ").toLowerCase();
+        const temIntencaoDiaria = /\b(diariamente|por dia|pagamento diario|cada dia|dia a dia)\b/i.test(fraseCompletaParaFallback);
+
+        if (temIntencaoDiaria && filtrosEncontrados.ordem_bancaria.length === 0 && filtrosEncontrados.ano.length === 0) {
+            const periodoPadrao = this.services.ordem_bancaria.getPeriodoCorrente();
+            filtrosEncontrados.ordem_bancaria.push(periodoPadrao);
         }
 
         // Remove duplicatas e chaves com arrays vazios
@@ -207,14 +255,14 @@ class FiltroService {
                         idsUnicos.add(chave);
                         return true;
                     }
-                    
-                    if (entidade === "emenda" || entidade === "contrato") {
+
+                    if (["emenda", "contrato", "convenio_despesa", "convenio_receita"].includes(entidade)) {
                         const chaveGenerica = `${item.codigo}_${item.descricao}`;
                         if (idsUnicos.has(chaveGenerica)) return false;
                         idsUnicos.add(chaveGenerica);
                         return true;
                     }
-                    
+
                     if (idsUnicos.has(item.codigo)) return false;
                     idsUnicos.add(item.codigo);
                     return true;

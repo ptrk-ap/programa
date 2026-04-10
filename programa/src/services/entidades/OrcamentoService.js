@@ -137,7 +137,10 @@ class OrcamentoService {
                 "convenio receitas",
                 "convenios receitas",
                 "convenio de receita",
-                "convenios de receitas",
+                "convenios de receitas"
+            ],
+            // Termo compartilhado que ativa ambos os serviços em paralelo
+            "convenio_despesa convenio_receita": [
                 "convenio",
                 "convenios"
             ],
@@ -164,7 +167,12 @@ class OrcamentoService {
                 "dotacao inicial",
                 "orcamento inicial",
                 "orcamento",
-                "dotacoes iniciais"
+                "dotacoes iniciais",
+                "orçado",
+                "orçados",
+                "orçada",
+                "orçadas",
+                "orçamentos"
             ],
 
             "despesas_empenhadas": [
@@ -202,7 +210,9 @@ class OrcamentoService {
                 "paga",
                 "pagas",
                 "despesa",
-                "despesas"
+                "despesas",
+                "pagamento",
+                "pagamentos"
             ],
             "despesas_liquidadas": [
                 "despesa liquidada",
@@ -258,6 +268,13 @@ class OrcamentoService {
                 "semestral",
                 "semestrais",
                 "semestre a semestre"
+            ],
+            "agrupamento_diario": [
+                "diariamente",
+                "por dia",
+                "pagamento diario",
+                "cada dia",
+                "dia a dia"
             ]
         };
 

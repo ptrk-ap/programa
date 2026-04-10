@@ -33,7 +33,8 @@ class ExtratorTermosService {
             "agrupamento_mensal",
             "agrupamento_bimestral",
             "agrupamento_trimestral",
-            "agrupamento_semestral"
+            "agrupamento_semestral",
+            "agrupamento_diario"
         ];
     }
 
@@ -54,6 +55,13 @@ class ExtratorTermosService {
             
             // Ignora a chave explícita ("fonte", "natureza") se ela for apenas o alvo de uma exclusão ("sem a fonte")
             const isExcluded = exclusaoFiltroService.verificarExclusao(textoNormatizado, chave);
+
+            // Regra especial: emendas, contratos e convênios possuem tratamento diferenciado em buscas negativas.
+            // Mantemos a chave como parâmetro mesmo em contexto de exclusão (ex: "sem emendas", "sem convenio").
+            if (["emenda", "contrato", "convenio_despesa", "convenio_receita"].includes(chave)) {
+                return true;
+            }
+
             return !isExcluded;
         });
     }

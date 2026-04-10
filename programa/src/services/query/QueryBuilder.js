@@ -26,6 +26,10 @@ function buildSelectAndGroupBy(entidadesFinais, valoresSolicitados) {
         } else if (entidade === "agrupamento_semestral") {
             selectParts.push(`CASE WHEN MONTH(ordem_bancaria) <= 6 THEN 1 ELSE 2 END AS semestre`);
             groupByParts.push(`semestre`);
+        } else if (entidade === "agrupamento_diario") {
+            selectParts.push(`DATE_FORMAT(ordem_bancaria, '%d/%m/%Y') AS dia`);
+            groupByParts.push(`DATE(ordem_bancaria)`);
+            groupByParts.push(`dia`);
         } else if (entidade !== "ordem_bancaria") {
             selectParts.push(quoteIdent(entidade));
             groupByParts.push(quoteIdent(entidade));
@@ -83,7 +87,7 @@ function buildWhere(hierarquicos, independentes, filtrosEncontrados) {
 
     // Filtros independentes
     for (const [entidade, valores] of Object.entries(independentes)) {
-        if (entidade === "credor" || entidade === "emenda") {
+        if (["credor", "emenda", "contrato", "convenio_despesa", "convenio_receita"].includes(entidade)) {
             const incluir = valores.filter(v => !v.excluir);
             const excluir = valores.filter(v => v.excluir);
             
@@ -188,6 +192,12 @@ function buildOrderBy(entidadesFinais, selectParts) {
         orderClause = orderClause
             ? `${orderClause}, \`semestre\` ASC`
             : `ORDER BY \`semestre\` ASC`;
+    }
+
+    if (entidadesFinais.has("agrupamento_diario")) {
+        orderClause = orderClause
+            ? `${orderClause}, DATE(ordem_bancaria) ASC`
+            : `ORDER BY DATE(ordem_bancaria) ASC`;
     }
 
     return orderClause;

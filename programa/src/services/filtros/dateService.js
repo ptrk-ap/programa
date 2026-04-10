@@ -249,6 +249,25 @@ class PeriodoService {
         const m = String(data.getMonth() + 1).padStart(2, '0');
         return `${y}-${m}-${d}`;
     }
+
+    /**
+     * Retorna o período do mês atual (1º ao último dia).
+     */
+    getPeriodoCorrente() {
+        const hoje = new Date();
+        const y = hoje.getFullYear();
+        const m = hoje.getMonth();
+        
+        const inicio = new Date(y, m, 1);
+        const fim = new Date(y, m + 1, 0);
+
+        return {
+            data_inicio: this._dateToStr(inicio),
+            data_fim: this._dateToStr(fim),
+            trecho_encontrado: "mês atual",
+            excluir: false
+        };
+    }
 }
 
 module.exports = PeriodoService;

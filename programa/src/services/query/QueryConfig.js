@@ -27,7 +27,8 @@ const ENTITY_COLUMNS = [
     "agrupamento_mensal",
     "agrupamento_bimestral",
     "agrupamento_trimestral",
-    "agrupamento_semestral"
+    "agrupamento_semestral",
+    "agrupamento_diario"
 ];
 
 const VALUE_COLUMNS = [
