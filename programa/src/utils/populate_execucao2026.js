@@ -11,7 +11,7 @@
 require("dotenv").config();
 const https = require("https");
 const readline = require("readline");
-const knex = require("./src/database/connection");
+const knex = require("../database/connection");
 const { parse } = require("csv-parse/sync");
 const iconv = require("iconv-lite");
 

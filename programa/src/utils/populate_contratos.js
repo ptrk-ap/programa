@@ -1,5 +1,5 @@
 require("dotenv").config();
-const knex = require("./src/database/connection");
+const knex = require("../database/connection");
 
 async function populateContratos() {
     console.log("== Criando tabela e populando 'contratos' a partir de execucao2024, execucao2025 e execucao2026 ==\n");
