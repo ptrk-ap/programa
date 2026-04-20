@@ -2,20 +2,35 @@ require("dotenv").config();
 const knex = require("./src/database/connection");
 
 async function populateEmendas() {
-    console.log("== Populando tabela 'emendas' a partir de execucao2024 e execucao2025 ==\n");
+    console.log("== Criando tabela e populando 'emendas' a partir de execucao2024, execucao2025 e execucao2026 ==\n");
 
-    // 1. Busca valores DISTINCT de emenda das duas tabelas
+    try {
+        // 0. Criar tabela se não existir
+        await knex.raw(`
+            CREATE TABLE IF NOT EXISTS emendas (
+                id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+                codigo VARCHAR(20) NOT NULL,
+                descricao TEXT,
+                PRIMARY KEY (id),
+                UNIQUE KEY uq_emendas_codigo (codigo)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+        `);
+        console.log("Tabela 'emendas' verificada/criada.");
+
+        // 1. Busca valores DISTINCT de emenda das duas tabelas
     console.log("Buscando valores distintos de emenda...");
 
     const [rows2024] = await knex.raw("SELECT DISTINCT emenda FROM `execucao2024` WHERE emenda IS NOT NULL AND emenda != ''");
     const [rows2025] = await knex.raw("SELECT DISTINCT emenda FROM `execucao2025` WHERE emenda IS NOT NULL AND emenda != ''");
+    const [rows2026] = await knex.raw("SELECT DISTINCT emenda FROM `execucao2026` WHERE emenda IS NOT NULL AND emenda != ''");
 
     console.log(`  execucao2024: ${rows2024.length} registros distintos`);
     console.log(`  execucao2025: ${rows2025.length} registros distintos`);
+    console.log(`  execucao2026: ${rows2026.length} registros distintos`);
 
     // 2. Combina e deduplica pelo valor bruto do campo
     const valoresBrutos = new Set();
-    [...rows2024, ...rows2025].forEach(r => {
+    [...rows2024, ...rows2025, ...rows2026].forEach(r => {
         if (r.emenda) valoresBrutos.add(r.emenda.trim());
     });
 
@@ -33,20 +48,28 @@ async function populateEmendas() {
         return { codigo, descricao };
     }
 
-    // 4. Carrega os códigos já existentes na tabela emendas para evitar duplicidade
-    const existentes = await knex("emendas").select("codigo", "descricao");
-    const chavesExistentes = new Set(
-        existentes.map(e => `${(e.codigo || "").trim()}|${(e.descricao || "").trim()}`)
-    );
-
-    console.log(`Registros já existentes na tabela 'emendas': ${existentes.length}`);
-
-    // 5. Filtra apenas os novos registros
-    const novos = [];
+    // 4. Mapear por código para garantir unicidade
+    // Se houver códigos duplicados com descrições diferentes, pegamos a descrição mais completa
+    const mapaEmendas = new Map();
     for (const valorBruto of valoresBrutos) {
         const { codigo, descricao } = parsearEmenda(valorBruto);
-        const chave = `${codigo}|${descricao}`;
-        if (!chavesExistentes.has(chave)) {
+        if (!codigo) continue;
+
+        const existente = mapaEmendas.get(codigo);
+        if (!existente || (descricao.length > existente.length)) {
+            mapaEmendas.set(codigo, descricao);
+        }
+    }
+
+    console.log(`Registros após deduplicação por código: ${mapaEmendas.size}`);
+
+    // 5. Verificar o que já existe no banco
+    const existentesNoBanco = await knex("emendas").select("codigo");
+    const codigosNoBanco = new Set(existentesNoBanco.map(e => e.codigo));
+
+    const novos = [];
+    for (const [codigo, descricao] of mapaEmendas.entries()) {
+        if (!codigosNoBanco.has(codigo)) {
             novos.push({ codigo, descricao });
         }
     }
@@ -71,10 +94,11 @@ async function populateEmendas() {
     }
 
     console.log(`\n\n✅ Concluído! ${inseridos} novos registros inseridos na tabela 'emendas'.`);
-    await knex.destroy();
+    } catch (err) {
+        console.error("\n❌ Erro durante o processo:", err.message);
+    } finally {
+        await knex.destroy();
+    }
 }
 
-populateEmendas().catch(err => {
-    console.error("\n❌ Erro:", err.message);
-    process.exit(1);
-});
+populateEmendas();

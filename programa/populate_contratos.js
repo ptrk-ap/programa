@@ -2,7 +2,7 @@ require("dotenv").config();
 const knex = require("./src/database/connection");
 
 async function populateContratos() {
-    console.log("== Criando tabela e populando 'contratos' a partir de execucao2024 e execucao2025 ==\n");
+    console.log("== Criando tabela e populando 'contratos' a partir de execucao2024, execucao2025 e execucao2026 ==\n");
 
     try {
         // 1. Criar tabela se não existir
@@ -22,13 +22,15 @@ async function populateContratos() {
 
         const [rows2024] = await knex.raw("SELECT DISTINCT contrato FROM `execucao2024` WHERE contrato IS NOT NULL AND contrato != ''");
         const [rows2025] = await knex.raw("SELECT DISTINCT contrato FROM `execucao2025` WHERE contrato IS NOT NULL AND contrato != ''");
+        const [rows2026] = await knex.raw("SELECT DISTINCT contrato FROM `execucao2026` WHERE contrato IS NOT NULL AND contrato != ''");
 
         console.log(`  execucao2024: ${rows2024.length} registros distintos`);
         console.log(`  execucao2025: ${rows2025.length} registros distintos`);
+        console.log(`  execucao2026: ${rows2026.length} registros distintos`);
 
         // 3. Combina e deduplica pelo valor bruto do campo
         const valoresBrutos = new Set();
-        [...rows2024, ...rows2025].forEach(r => {
+        [...rows2024, ...rows2025, ...rows2026].forEach(r => {
             if (r.contrato && r.contrato.trim() && r.contrato.trim() !== "- - -") {
                 valoresBrutos.add(r.contrato.trim());
             }
